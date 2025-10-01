@@ -1,0 +1,8 @@
+# Caches
+__pycache__
+/.ruff_cache
+/.mypy_cache
+
+# Virtual environment
+/.venv
+/venv
