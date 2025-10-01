@@ -1,5 +1,5 @@
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 120
 exclude = ["venv"]
 
@@ -24,7 +24,7 @@ ignore = [
 ] # TODO leave only "COM812", "ANN102", "UP040" in ignores
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 ignore_missing_imports = true
 plugins = ["pydantic.mypy"]
