@@ -2,7 +2,7 @@ import cv2
 from pygrabber.dshow_graph import FilterGraph
 
 
-class WebCam:
+class Webcam:
     @classmethod
     def list_webcams(cls) -> list[tuple[int, str]]:
         graph = FilterGraph()  # type: ignore  # noqa: PGH003
