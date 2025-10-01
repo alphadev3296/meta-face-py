@@ -1,5 +1,10 @@
+from typing import Any
+
 import cv2
+import numpy as np
 from pygrabber.dshow_graph import FilterGraph
+
+CvFrame = np.ndarray[Any, Any]
 
 
 class Webcam:
@@ -33,10 +38,15 @@ class Webcam:
         self.cap.set(cv2.CAP_PROP_FPS, self.fps)
 
     def close(self) -> None:
+        if self.cap is None:
+            return
+
         self.cap.release()
         self.cap = None
 
-    def read(self) -> tuple[bool, cv2.Mat]:
+    def read(self) -> tuple[bool, CvFrame]:
+        if self.cap is None:
+            return False, CvFrame(0)
         return self.cap.read()
 
     def __del__(self) -> None:

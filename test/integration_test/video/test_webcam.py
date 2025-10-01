@@ -17,14 +17,16 @@ def test_open_close() -> None:
     fps = 10
 
     webcam = Webcam(device, width, height, fps)
-    cap = webcam.open()
+    webcam.open()
+    cap = webcam.cap
+    assert cap is not None
 
     assert cap.isOpened()
     actual_width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
     actual_height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     actual_fps = cap.get(cv2.CAP_PROP_FPS)
 
-    webcam.close(cap)
+    webcam.close()
 
     logger.debug(f"expected: {width} x {height} x {fps}")
     logger.debug(f"actual: {actual_width} x {actual_height} x {actual_fps}")
