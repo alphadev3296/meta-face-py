@@ -1,0 +1,36 @@
+#!/bin/bash
+
+echo "Starting pre-push checks..."
+
+# Run ruff format
+echo "Running 'ruff format' on the codebase..."
+ruff format
+if [ $? -ne 0 ]; then
+    echo "ERROR: Ruff format failed. Please fix the issues before pushing."
+    exit 1
+else
+    echo "'ruff format' completed successfully."
+fi
+
+# Run ruff check
+echo "Running 'ruff check' on the codebase..."
+ruff check
+if [ $? -ne 0 ]; then
+    echo "ERROR: Ruff check failed. Please fix the issues before pushing."
+    exit 1
+else
+    echo "'ruff check' completed successfully."
+fi
+
+# Run mypy
+echo "Running 'mypy' type checks on the codebase..."
+mypy app test
+if [ $? -ne 0 ]; then
+    echo "ERROR: Mypy check failed. Please fix the issues before pushing."
+    exit 1
+else
+    echo "'mypy' type checks completed successfully."
+fi
+
+echo "All checks passed successfully. Proceeding with push."
+exit 0
