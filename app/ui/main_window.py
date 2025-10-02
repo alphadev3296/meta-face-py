@@ -49,7 +49,11 @@ class VideoStreamApp(tk.Tk):
         )
         self.camera_panel.grid(row=0, column=0, sticky="ew", pady=2)
 
-        self.server_panel = ServerPanel(control_frame, self.update_status)
+        self.server_panel = ServerPanel(
+            parent=control_frame,
+            status_callback=self.update_status,
+            app_data=self.app_data,
+        )
         self.server_panel.grid(row=1, column=0, sticky="ew", pady=2)
 
         self.processing_panel = ProcessingPanel(control_frame, self.update_status)
