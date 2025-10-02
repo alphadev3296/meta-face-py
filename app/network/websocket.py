@@ -17,12 +17,12 @@ class WebSocketClient:
         self.reconnect_delay = reconnect_delay
         self.max_retries = max_retries
 
-    async def send_stream(self, encoded_stream: Generator[bytes, None, None]) -> None:
+    async def send_stream(self, byte_stream: Generator[bytes, None, None]) -> None:
         """
         Connect to server and send H264 stream chunks.
 
         Args:
-            encoded_stream (Generator[bytes]): yields byte packets (H264 chunks).
+            byte_stream (Generator[bytes]): yields byte packets (H264 chunks).
         """
         attempt = 0
         while self.max_retries == -1 or attempt < self.max_retries:
@@ -30,7 +30,7 @@ class WebSocketClient:
                 logger.info(f"Connecting to {self.uri} (attempt {attempt + 1})")
                 async with websockets.connect(self.uri, max_size=None) as ws:
                     logger.info("WebSocket connection established.")
-                    for packet in encoded_stream:
+                    for packet in byte_stream:
                         await ws.send(packet)
                         logger.debug(f"Sent packet size: {len(packet)} bytes")
                     logger.info("Finished sending stream.")
