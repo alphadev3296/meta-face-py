@@ -1,10 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-from loguru import logger
-from pydantic import BaseModel
-
-from app.config.fs import config as cfg_fs
+from app.schema.app_data import AppData
 from app.ui.camera_panel import CameraPanel
 from app.ui.local_video_panel import LocalVideoPanel
 from app.ui.processing_panel import ProcessingPanel
@@ -12,35 +9,6 @@ from app.ui.server_panel import ServerPanel
 from app.ui.status_bar import StatusBar
 from app.ui.stream_control_panel import StreamControlPanel
 from app.ui.video_preview import VideoPreviewPanel
-
-
-class AppData(BaseModel):
-    camera_id: int = 0
-    resolution: tuple[int, int] = (1280, 720)
-    fps: int = 20
-    server_address: str = "http://localhost:8000"
-    secret: str = ""
-    photo_data: str = ""
-    face_swap: bool = True
-    face_enhance: bool = True
-    show_local_video: bool = False
-
-    @classmethod
-    def load_app_data(cls) -> "AppData":
-        try:
-            with cfg_fs.CONF_FILE_PATH.open("r") as f:
-                return cls.model_validate_json(f.read())
-        except Exception:
-            logger.error(f"Failed to load app data from: {cfg_fs.CONF_FILE_PATH}")
-
-        return cls()
-
-    def save_app_data(self) -> None:
-        try:
-            with cfg_fs.CONF_FILE_PATH.open("w") as f:
-                f.write(self.model_dump_json(indent=2))
-        except Exception:
-            logger.error(f"Failed to save app data to: {cfg_fs.CONF_FILE_PATH}")
 
 
 class VideoStreamApp(tk.Tk):
@@ -74,7 +42,11 @@ class VideoStreamApp(tk.Tk):
         control_frame.columnconfigure(0, weight=1)
 
         # Add panels
-        self.camera_panel = CameraPanel(control_frame, self.update_status)
+        self.camera_panel = CameraPanel(
+            parent=control_frame,
+            status_callback=self.update_status,
+            app_data=self.app_data,
+        )
         self.camera_panel.grid(row=0, column=0, sticky="ew", pady=2)
 
         self.server_panel = ServerPanel(control_frame, self.update_status)
