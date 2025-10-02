@@ -32,7 +32,7 @@ def test_open_close() -> None:
     logger.debug(f"actual: {actual_width} x {actual_height} x {actual_fps}")
 
 
-def test_frame_view() -> None:
+def test_frame_view_raw() -> None:
     logger.debug("Press 'q' to quit")
 
     webcam = Webcam(1, 1280, 720, 30)
@@ -43,6 +43,21 @@ def test_frame_view() -> None:
         if not ret:
             break
 
+        cv2.imshow("Camera Test", frame)
+        if cv2.waitKey(1) & 0xFF == ord("q"):  # Press 'q' to quit
+            break
+
+    webcam.close()
+    cv2.destroyAllWindows()
+
+
+def test_frame_view_generator() -> None:
+    logger.debug("Press 'q' to quit")
+
+    webcam = Webcam(1, 1280, 720, 10)
+    webcam.open()
+
+    for frame in webcam.capture_frames():
         cv2.imshow("Camera Test", frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):  # Press 'q' to quit
             break
