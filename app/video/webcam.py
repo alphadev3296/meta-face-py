@@ -1,3 +1,5 @@
+import time
+from collections.abc import Generator
 from typing import Any
 
 import cv2
@@ -31,8 +33,14 @@ class Webcam:
     def open(self) -> None:
         if self.cap is not None:
             self.cap.release()
+            self.cap = None
 
-        self.cap = cv2.VideoCapture(self.device, cv2.CAP_DSHOW)
+        cap = cv2.VideoCapture(self.device, cv2.CAP_DSHOW)
+        if not cap.isOpened():
+            msg = f"Could not open camera {self.device}"
+            raise RuntimeError(msg)
+
+        self.cap = cap
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         self.cap.set(cv2.CAP_PROP_FPS, self.fps)
@@ -51,3 +59,22 @@ class Webcam:
 
     def __del__(self) -> None:
         self.close()
+
+    def capture_frames(self) -> Generator[CvFrame, None, None]:
+        try:
+            self.open()
+
+            while True:
+                ret, frame = self.read()
+                if not ret:
+                    break
+
+                # Resize if needed
+                if frame.shape[1] != self.width or frame.shape[0] != self.height:
+                    frame = cv2.resize(frame, (self.width, self.height))
+
+                yield frame
+
+                time.sleep(1 / self.fps)
+        finally:
+            self.close()
