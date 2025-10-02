@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 
+from loguru import logger
+
 from app.schema.app_data import AppData
 from app.ui.camera_panel import CameraPanel
 from app.ui.local_video_panel import LocalVideoPanel
@@ -74,6 +76,8 @@ class VideoStreamApp(tk.Tk):
         self.stream_control_panel = StreamControlPanel(
             parent=control_frame,
             status_callback=self.update_status,
+            connect_callback=self.connect_server,
+            disconnect_callback=self.disconnect_server,
         )
         self.stream_control_panel.grid(row=4, column=0, sticky="ew", pady=2)
 
@@ -94,3 +98,9 @@ class VideoStreamApp(tk.Tk):
     def destroy(self) -> None:
         self.app_data.save_app_data()
         super().destroy()
+
+    async def connect_server(self) -> None:
+        logger.info("Connecting to server...")
+
+    async def disconnect_server(self) -> None:
+        logger.info("Disconnecting from server...")
