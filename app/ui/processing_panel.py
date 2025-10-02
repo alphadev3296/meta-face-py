@@ -1,17 +1,26 @@
 import tkinter as tk
 from collections.abc import Callable
+from pathlib import Path
 from tkinter import filedialog, ttk
 
 from PIL import Image, ImageTk
+
+from app.schema.app_data import AppData
 
 
 class ProcessingPanel(ttk.LabelFrame):
     """Processing options panel"""
 
-    def __init__(self, parent: ttk.Frame, status_callback: Callable[[str], None]) -> None:
+    def __init__(
+        self,
+        parent: ttk.Frame,
+        status_callback: Callable[[str], None],
+        app_data: AppData,
+    ) -> None:
         super().__init__(parent, text="Processing", padding=5)
+
+        self.app_data = app_data
         self.status_callback = status_callback
-        self.photo_path: str | None = None
 
         # Photo selection
         self.select_btn = ttk.Button(self, text="Select Photo", command=self.select_photo, width=18)
@@ -26,14 +35,14 @@ class ProcessingPanel(ttk.LabelFrame):
         self.preview_label.pack(fill="both", expand=True)
 
         # FaceSwap checkbox
-        self.faceswap_var = tk.BooleanVar()
+        self.faceswap_var = tk.BooleanVar(value=self.app_data.face_swap)
         self.faceswap_cb = ttk.Checkbutton(
             self, text="FaceSwap", variable=self.faceswap_var, command=self.on_faceswap_toggle
         )
         self.faceswap_cb.grid(row=2, column=0, sticky="w", pady=2)
 
         # FaceEnhance checkbox
-        self.faceenhance_var = tk.BooleanVar()
+        self.faceenhance_var = tk.BooleanVar(value=self.app_data.face_enhance)
         self.faceenhance_cb = ttk.Checkbutton(
             self, text="FaceEnhance", variable=self.faceenhance_var, command=self.on_faceenhance_toggle
         )
@@ -41,6 +50,10 @@ class ProcessingPanel(ttk.LabelFrame):
 
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
+
+        # Preview update
+        if Path(self.app_data.photo_path).is_file():
+            self.update_preview(self.app_data.photo_path)
 
     def select_photo(self) -> None:
         filename = filedialog.askopenfilename(
@@ -51,7 +64,7 @@ class ProcessingPanel(ttk.LabelFrame):
             ],
         )
         if filename:
-            self.photo_path = filename
+            self.app_data.photo_path = filename
             self.update_preview(filename)
             self.status_callback(f"Photo selected: {filename.split('/')[-1]}")
 
@@ -74,7 +87,9 @@ class ProcessingPanel(ttk.LabelFrame):
     def on_faceswap_toggle(self) -> None:
         status = "enabled" if self.faceswap_var.get() else "disabled"
         self.status_callback(f"FaceSwap {status}")
+        self.app_data.face_swap = self.faceswap_var.get()
 
     def on_faceenhance_toggle(self) -> None:
         status = "enabled" if self.faceenhance_var.get() else "disabled"
         self.status_callback(f"FaceEnhance {status}")
+        self.app_data.face_enhance = self.faceenhance_var.get()

@@ -11,7 +11,7 @@ class AppData(BaseModel):
     fps: int = 20
     server_address: str = "http://localhost:8000"
     secret: str = ""
-    photo_data: str = ""
+    photo_path: str = ""
     face_swap: bool = True
     face_enhance: bool = True
     show_local_video: bool = False
