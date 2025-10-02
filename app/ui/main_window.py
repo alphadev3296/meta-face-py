@@ -1,9 +1,11 @@
+import threading
 import tkinter as tk
 from tkinter import ttk
 
 from loguru import logger
 
 from app.schema.app_data import AppData
+from app.schema.camera_resolution import CAMERA_RESOLUTIONS
 from app.ui.camera_panel import CameraPanel
 from app.ui.local_video_panel import LocalVideoPanel
 from app.ui.processing_panel import ProcessingPanel
@@ -11,6 +13,7 @@ from app.ui.server_panel import ServerPanel
 from app.ui.status_bar import StatusBar
 from app.ui.stream_control_panel import StreamControlPanel
 from app.ui.video_preview import VideoPreviewPanel
+from app.video.webcam import Webcam
 
 
 class VideoStreamApp(tk.Tk):
@@ -20,6 +23,7 @@ class VideoStreamApp(tk.Tk):
         super().__init__()
 
         self.app_data = AppData.load_app_data()
+        self.webcam: Webcam | None = None
 
         self.title("Video Streaming Control Panel")
         self.geometry("1200x760")
@@ -99,8 +103,31 @@ class VideoStreamApp(tk.Tk):
         self.app_data.save_app_data()
         super().destroy()
 
+    def start_local_cam(self) -> None:
+        logger.info("Starting local camera...")
+
+        if self.webcam is not None:
+            self.webcam.close()
+
+        resolution = CAMERA_RESOLUTIONS[self.app_data.resolution]
+        self.webcam = Webcam(
+            device=self.app_data.camera_id,
+            width=resolution[0],
+            height=resolution[1],
+            fps=self.app_data.fps,
+        )
+        self.webcam.open()
+
+        for frame in self.webcam.capture_frames():
+            self.local_video_panel.show_frame(frame)
+
     async def connect_server(self) -> None:
         logger.info("Connecting to server...")
+        threading.Thread(target=self.start_local_cam).start()
 
     async def disconnect_server(self) -> None:
         logger.info("Disconnecting from server...")
+
+        if self.webcam is not None:
+            self.webcam.close()
+            self.webcam = None
