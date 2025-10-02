@@ -2,7 +2,7 @@ import av
 from loguru import logger
 
 from app.network.websocket import WebSocket
-from app.video.video import VideoCodec
+from app.video.codec import VideoCodec
 from app.video.webcam import Webcam
 
 
