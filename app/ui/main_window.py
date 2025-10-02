@@ -1,16 +1,14 @@
 import tkinter as tk
+from collections.abc import Callable
 from tkinter import filedialog, ttk
 
-try:
-    from PIL import Image, ImageTk
-except ImportError:
-    Image = ImageTk = None
+from PIL import Image, ImageTk
 
 
 class CameraPanel(ttk.LabelFrame):
     """Camera configuration panel"""
 
-    def __init__(self, parent: ttk.Frame, status_callback: callable[[str], None]) -> None:
+    def __init__(self, parent: ttk.Frame, status_callback: Callable[[str], None]) -> None:
         super().__init__(parent, text="Camera", padding=5)
         self.status_callback = status_callback
 
@@ -50,20 +48,20 @@ class CameraPanel(ttk.LabelFrame):
 
         self.columnconfigure(1, weight=1)
 
-    def on_camera_change(self, _event=None) -> None:  # noqa: ANN001
+    def on_camera_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         self.status_callback(f"Camera changed to: {self.camera_var.get()}")
 
-    def on_resolution_change(self, _event=None) -> None:  # noqa: ANN001
+    def on_resolution_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         self.status_callback(f"Resolution set to: {self.resolution_var.get()}")
 
-    def on_fps_change(self, _event=None) -> None:  # noqa: ANN001
+    def on_fps_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         self.status_callback(f"FPS set to: {self.fps_var.get()}")
 
 
 class ServerPanel(ttk.LabelFrame):
     """Server configuration panel"""
 
-    def __init__(self, parent: ttk.Frame, status_callback: callable[[str], None]) -> None:
+    def __init__(self, parent: ttk.Frame, status_callback: Callable[[str], None]) -> None:
         super().__init__(parent, text="Server", padding=5)
         self.status_callback = status_callback
 
@@ -83,10 +81,10 @@ class ServerPanel(ttk.LabelFrame):
 
         self.columnconfigure(1, weight=1)
 
-    def on_address_change(self, _event=None) -> None:  # noqa: ANN001
+    def on_address_change(self, _event=None) -> None:  # type: ignore  # noqa: ANN001, PGH003
         self.status_callback(f"Server address updated: {self.address_var.get()}")
 
-    def on_secret_change(self, _event=None) -> None:  # noqa: ANN001
+    def on_secret_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         if self.secret_var.get():
             self.status_callback("Secret updated")
 
@@ -94,10 +92,10 @@ class ServerPanel(ttk.LabelFrame):
 class ProcessingPanel(ttk.LabelFrame):
     """Processing options panel"""
 
-    def __init__(self, parent: ttk.Frame, status_callback: callable[[str], None]) -> None:
+    def __init__(self, parent: ttk.Frame, status_callback: Callable[[str], None]) -> None:
         super().__init__(parent, text="Processing", padding=5)
         self.status_callback = status_callback
-        self.photo_path = None
+        self.photo_path: str | None = None
 
         # Photo selection
         self.select_btn = ttk.Button(self, text="Select Photo", command=self.select_photo, width=18)
@@ -152,7 +150,7 @@ class ProcessingPanel(ttk.LabelFrame):
             img.thumbnail((150, 120))
             photo = ImageTk.PhotoImage(img)
             self.preview_label.config(image=photo, text="")
-            self.preview_label.image = photo
+            self.preview_label.image = photo  # type: ignore  # noqa: PGH003
         except Exception as e:
             self.preview_label.config(text=f"Error: {str(e)[:30]}")
             self.status_callback(f"Error loading preview: {e}")
@@ -169,7 +167,7 @@ class ProcessingPanel(ttk.LabelFrame):
 class LocalVideoPanel(ttk.LabelFrame):
     """Local video preview panel"""
 
-    def __init__(self, parent: ttk.Frame, status_callback: callable[[str], None]) -> None:
+    def __init__(self, parent: ttk.Frame, status_callback: Callable[[str], None]) -> None:
         super().__init__(parent, text="Local Video", padding=5)
         self.status_callback = status_callback
 
@@ -204,7 +202,7 @@ class LocalVideoPanel(ttk.LabelFrame):
 class StreamControlPanel(ttk.LabelFrame):
     """Stream control buttons"""
 
-    def __init__(self, parent: ttk.Frame, status_callback: callable[[str], None]) -> None:
+    def __init__(self, parent: ttk.Frame, status_callback: Callable[[str], None]) -> None:
         super().__init__(parent, text="Stream Controls", padding=5)
         self.status_callback = status_callback
         self.connected = False
@@ -239,7 +237,7 @@ class StreamControlPanel(ttk.LabelFrame):
 class VideoPreviewPanel(ttk.LabelFrame):
     """Main video preview panel"""
 
-    def __init__(self, parent: ttk.Frame) -> None:
+    def __init__(self, parent: tk.Tk) -> None:
         super().__init__(parent, text="Camera Preview", padding=5)
 
         self.preview_label = ttk.Label(
@@ -255,7 +253,7 @@ class VideoPreviewPanel(ttk.LabelFrame):
 class StatusBar(ttk.Frame):
     """Status bar at bottom"""
 
-    def __init__(self, parent: ttk.Frame) -> None:
+    def __init__(self, parent: tk.Tk) -> None:
         super().__init__(parent, relief="sunken", borderwidth=1)
 
         self.status_label = ttk.Label(self, text="Ready", anchor="w")
