@@ -77,4 +77,4 @@ class LocalVideoPanel(ttk.LabelFrame):
 
         # Update preview
         self.preview_label.config(image=imgtk)
-        self.preview_label.image = imgtk # type: ignore  # noqa: PGH003
+        self.preview_label.image = imgtk  # type: ignore  # noqa: PGH003
