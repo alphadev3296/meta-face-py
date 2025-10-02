@@ -1,7 +1,7 @@
 import av
 from loguru import logger
 
-from app.network.websocket import WebSocket
+from app.network.websocket import WebSocketClient
 from app.video.codec import VideoCodec
 from app.video.webcam import Webcam
 
@@ -24,4 +24,4 @@ def test_encode() -> None:
         height=height,
         fps=fps,
     )
-    WebSocket.stub_sender(encoded_stream)
+    WebSocketClient.stub_sender(encoded_stream)
