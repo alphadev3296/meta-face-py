@@ -321,8 +321,3 @@ class VideoStreamApp(tk.Tk):
     def update_status(self, message: str) -> None:
         """Update status bar message"""
         self.status_bar.set_status(message)
-
-
-if __name__ == "__main__":
-    app = VideoStreamApp()
-    app.mainloop()
