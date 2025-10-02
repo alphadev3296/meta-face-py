@@ -179,15 +179,15 @@ class LocalVideoPanel(ttk.LabelFrame):
         self.show_cb.grid(row=0, column=0, sticky="w", pady=2)
 
         # Video preview
-        self.preview_frame = ttk.Frame(self, relief="sunken", borderwidth=1)
-        self.preview_frame.grid(row=1, column=0, pady=5, sticky="nsew")
+        self.preview_frame = ttk.Frame(self, relief="sunken", borderwidth=1, height=1200)
+        self.preview_frame.grid(row=1, column=0, pady=5, sticky="ew")
 
         self.preview_label = ttk.Label(
             self.preview_frame, text="Local Preview", anchor="center", background="gray20", foreground="white"
         )
         self.preview_label.pack(fill="both", expand=True)
 
-        self.rowconfigure(1, weight=1)
+        self.rowconfigure(1, weight=0)
         self.columnconfigure(0, weight=1)
 
     def on_show_toggle(self) -> None:
@@ -270,8 +270,8 @@ class VideoStreamApp(tk.Tk):
         super().__init__()
 
         self.title("Video Streaming Control Panel")
-        self.geometry("900x600")
-        self.minsize(800, 500)
+        self.geometry("1200x720")
+        self.minsize(1200, 720)
 
         # Configure grid
         self.columnconfigure(0, weight=0, minsize=220)
