@@ -27,7 +27,7 @@ class LocalVideoPanel(ttk.LabelFrame):
         self.show_cb.grid(row=0, column=0, sticky="w", pady=2)
 
         # Video preview
-        self.preview_frame = ttk.Frame(self, relief="sunken", borderwidth=1, height=1200)
+        self.preview_frame = ttk.Frame(self, relief="sunken", borderwidth=1, height=120)
         self.preview_frame.grid(row=1, column=0, pady=5, sticky="ew")
 
         self.preview_label = ttk.Label(
@@ -37,6 +37,9 @@ class LocalVideoPanel(ttk.LabelFrame):
 
         self.rowconfigure(1, weight=0)
         self.columnconfigure(0, weight=1)
+
+        # Initial state
+        self.on_show_toggle()
 
     def on_show_toggle(self) -> None:
         show_local_video = self.show_var.get()

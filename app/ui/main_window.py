@@ -22,8 +22,8 @@ class VideoStreamApp(tk.Tk):
         self.app_data = AppData.load_app_data()
 
         self.title("Video Streaming Control Panel")
-        self.geometry("1200x720")
-        self.minsize(1200, 720)
+        self.geometry("1200x760")
+        self.minsize(1200, 760)
 
         # Configure grid
         self.columnconfigure(0, weight=0, minsize=220)
@@ -31,9 +31,9 @@ class VideoStreamApp(tk.Tk):
         self.rowconfigure(0, weight=1)
 
         # Create main panels
+        self.create_status_bar()
         self.create_control_panel()
         self.create_video_panel()
-        self.create_status_bar()
 
     def create_control_panel(self) -> None:
         """Create left control panel"""
@@ -71,7 +71,7 @@ class VideoStreamApp(tk.Tk):
             app_data=self.app_data,
         )
         self.local_video_panel.grid(row=3, column=0, sticky="nsew", pady=2)
-        control_frame.rowconfigure(3, weight=1)
+        control_frame.rowconfigure(3, weight=0)
 
         self.stream_control_panel = StreamControlPanel(
             parent=control_frame,
