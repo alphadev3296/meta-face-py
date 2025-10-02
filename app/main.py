@@ -1,8 +1,9 @@
-from loguru import logger
+from app.ui.main_window import VideoStreamApp
 
 
 def main() -> None:
-    logger.debug("Hello, World!")
+    app = VideoStreamApp()
+    app.mainloop()
 
 
 if __name__ == "__main__":
