@@ -50,13 +50,13 @@ class CameraPanel(ttk.LabelFrame):
 
         self.columnconfigure(1, weight=1)
 
-    def on_camera_change(self, event=None) -> None:
+    def on_camera_change(self, _event=None) -> None:  # noqa: ANN001
         self.status_callback(f"Camera changed to: {self.camera_var.get()}")
 
-    def on_resolution_change(self, event=None) -> None:
+    def on_resolution_change(self, _event=None) -> None:  # noqa: ANN001
         self.status_callback(f"Resolution set to: {self.resolution_var.get()}")
 
-    def on_fps_change(self, event=None) -> None:
+    def on_fps_change(self, _event=None) -> None:  # noqa: ANN001
         self.status_callback(f"FPS set to: {self.fps_var.get()}")
 
 
@@ -83,10 +83,10 @@ class ServerPanel(ttk.LabelFrame):
 
         self.columnconfigure(1, weight=1)
 
-    def on_address_change(self, event=None) -> None:
+    def on_address_change(self, _event=None) -> None:  # noqa: ANN001
         self.status_callback(f"Server address updated: {self.address_var.get()}")
 
-    def on_secret_change(self, event=None) -> None:
+    def on_secret_change(self, _event=None) -> None:  # noqa: ANN001
         if self.secret_var.get():
             self.status_callback("Secret updated")
 
@@ -106,7 +106,7 @@ class ProcessingPanel(ttk.LabelFrame):
         # Photo preview
         self.preview_frame = ttk.Frame(self, relief="sunken", borderwidth=1, height=120)
         self.preview_frame.grid(row=1, column=0, columnspan=2, pady=5, sticky="ew")
-        self.preview_frame.grid_propagate(False)
+        self.preview_frame.grid_propagate(False)  # noqa: FBT003
 
         self.preview_label = ttk.Label(self.preview_frame, text="No photo selected", anchor="center")
         self.preview_label.pack(fill="both", expand=True)
@@ -155,7 +155,7 @@ class ProcessingPanel(ttk.LabelFrame):
             self.preview_label.image = photo
         except Exception as e:
             self.preview_label.config(text=f"Error: {str(e)[:30]}")
-            self.status_callback(f"Error loading preview: {str(e)}")
+            self.status_callback(f"Error loading preview: {e}")
 
     def on_faceswap_toggle(self) -> None:
         status = "enabled" if self.faceswap_var.get() else "disabled"
