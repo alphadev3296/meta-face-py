@@ -71,7 +71,10 @@ class VideoStreamApp(tk.Tk):
         self.local_video_panel.grid(row=3, column=0, sticky="nsew", pady=2)
         control_frame.rowconfigure(3, weight=1)
 
-        self.stream_control_panel = StreamControlPanel(control_frame, self.update_status)
+        self.stream_control_panel = StreamControlPanel(
+            parent=control_frame,
+            status_callback=self.update_status,
+        )
         self.stream_control_panel.grid(row=4, column=0, sticky="ew", pady=2)
 
     def create_video_panel(self) -> None:
