@@ -33,7 +33,7 @@ class VideoCodec:
 
             # Encode
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            av_frame = av.VideoFrame.from_ndarray(frame_rgb, format="rgb24")
+            av_frame = av.VideoFrame.from_ndarray(frame_rgb, format="rgb24")  # type: ignore  # noqa: PGH003
             packets = codec.encode(av_frame)
 
             # Yield the encoded packets
