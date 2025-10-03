@@ -1,9 +1,13 @@
 import threading
 import tkinter as tk
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from tkinter import ttk
 
+from jose import jwt
 from loguru import logger
 
+from app.config.auth import config as cfg_auth
 from app.network.websocket import WebSocketVideoClient
 from app.schema.app_data import AppData
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS
@@ -138,11 +142,26 @@ class VideoStreamApp(tk.Tk):
         )
 
         # Start sending stream
+        jwt_token = jwt.encode(
+            {
+                "sub": "",
+                "exp": datetime.now(tz=UTC) + timedelta(minutes=cfg_auth.JWT_TOKEN_EXPIRE_MINS),
+                "face_swap": self.app_data.face_swap,
+                "face_enhance": self.app_data.face_enhance,
+            },
+            self.app_data.secret,
+            algorithm=cfg_auth.JWT_ALGORITHM,
+        )
+        with Path(self.app_data.photo_path).open("rb") as f:
+            photo_data = f.read()
+
         client.start(
             frames=self.webcam.frame_generator(
                 frames_callback=self.on_new_frame,
             ),
             frame_callback=self.on_remote_frame,
+            jwt_token=jwt_token,
+            photo=photo_data,
         )
 
         # Stop local camera

@@ -209,6 +209,8 @@ class WebSocketVideoClient:
         self,
         frames: Generator["CvFrame", None, None],
         frame_callback: Callable[["CvFrame", int], None],
+        jwt_token: str,
+        photo: bytes,
     ) -> None:
         attempt = 0
 
@@ -228,6 +230,12 @@ class WebSocketVideoClient:
                     write_limit=2**20,  # 1MB write buffer
                 ) as ws:
                     logger.info(f"Connected to WebSocket: {self.uri}")
+
+                    # Send JWT token
+                    await ws.send(jwt_token)
+
+                    # Send photo
+                    await ws.send(photo)
 
                     # Reset codec state
                     self.processor.cleanup_encoder()
@@ -310,10 +318,12 @@ class WebSocketVideoClient:
         self,
         frames: Generator[CvFrame, None, None],
         frame_callback: Callable[[CvFrame, int], None],
+        jwt_token: str,
+        photo: bytes,
     ) -> None:
         """Start the WebSocket client with true concurrent processing."""
         try:
-            asyncio.run(self._run_async(frames, frame_callback))
+            asyncio.run(self._run_async(frames, frame_callback, jwt_token, photo))
         finally:
             if self.executor:
                 self.executor.shutdown(wait=True)
