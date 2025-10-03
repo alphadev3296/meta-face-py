@@ -1,5 +1,3 @@
-import time
-from collections.abc import Generator
 from typing import Any
 
 import cv2
@@ -10,12 +8,22 @@ CvFrame = np.ndarray[Any, Any]
 
 
 class Webcam:
-    def __init__(self, device: int, width: int, height: int, fps: int) -> None:
+    def __init__(
+        self,
+        device: int,
+        width: int,
+        height: int,
+        fps: int,
+    ) -> None:
         self.device = device
         self.width = width
         self.height = height
         self.fps = fps
+
         self.cap: cv2.VideoCapture | None = None
+
+    def __del__(self) -> None:
+        self.close()
 
     @classmethod
     def list_webcams(cls) -> list[tuple[int, str]]:
@@ -31,9 +39,7 @@ class Webcam:
         return available
 
     def open(self) -> None:
-        if self.cap is not None:
-            self.cap.release()
-            self.cap = None
+        self.close()
 
         cap = cv2.VideoCapture(self.device, cv2.CAP_DSHOW)
         if not cap.isOpened():
@@ -46,35 +52,11 @@ class Webcam:
         self.cap.set(cv2.CAP_PROP_FPS, self.fps)
 
     def close(self) -> None:
-        if self.cap is None:
-            return
-
-        self.cap.release()
-        self.cap = None
+        if self.cap is not None:
+            self.cap.release()
+            self.cap = None
 
     def read(self) -> tuple[bool, CvFrame]:
         if self.cap is None:
             return False, CvFrame(0)
         return self.cap.read()
-
-    def __del__(self) -> None:
-        self.close()
-
-    def capture_frames(self) -> Generator[CvFrame, None, None]:
-        try:
-            self.open()
-
-            while True:
-                ret, frame = self.read()
-                if not ret:
-                    break
-
-                # Resize if needed
-                if frame.shape[1] != self.width or frame.shape[0] != self.height:
-                    frame = cv2.resize(frame, (self.width, self.height))
-
-                yield frame
-
-                time.sleep(1 / self.fps)
-        finally:
-            self.close()
