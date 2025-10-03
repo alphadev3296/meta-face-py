@@ -2,7 +2,6 @@ import contextlib
 from fractions import Fraction
 
 import av
-import cv2
 from loguru import logger
 
 from app.video.webcam import CvFrame
@@ -20,23 +19,28 @@ class H264VideoProcessor:
         self.max_consecutive_errors = 10  # Reset decoder after this many errors
 
     def init_decoder(self) -> None:
-        """Initialize H.264 decoder."""
+        """Initialize H.264 decoder with low-latency settings."""
         try:
             if self.decoder is not None:
                 self.cleanup_decoder()
             self.decoder = av.CodecContext.create("h264", "r")
-            # Set decoder options for better error handling
-            self.decoder.thread_type = "AUTO"
-            self.decoder.thread_count = 0
+
+            # CRITICAL: Avoid FF_THREAD_FRAME which adds 1 frame delay per thread
+            # Use SLICE threading instead for lower latency
+            self.decoder.thread_type = "SLICE"
+            self.decoder.thread_count = 1  # Minimize threading delay
+
+            # Skip no frames - decode everything immediately
             self.decoder.skip_frame = "DEFAULT"
-            logger.info("Decoder initialized")
-            self.consecutive_decode_errors = 0  # Reset error counter
+
+            logger.info("Low-latency decoder initialized")
+            self.consecutive_decode_errors = 0
         except Exception as e:
             logger.error(f"Failed to initialize decoder: {e}")
             raise
 
     def init_encoder(self, width: int, height: int, fps: int = 30) -> None:
-        """Initialize H.264 encoder for grayscale output."""
+        """Initialize H.264 encoder optimized for low-latency video conferencing."""
         try:
             if self.encoder is not None:
                 self.cleanup_encoder()
@@ -47,10 +51,28 @@ class H264VideoProcessor:
             self.encoder.pix_fmt = "yuv420p"
             self.encoder.time_base = Fraction(1, fps)
             self.encoder.framerate = Fraction(fps, 1)
-            self.encoder.bit_rate = 2000000  # 2 Mbps
-            self.encoder.options = {"preset": "ultrafast", "tune": "zerolatency"}
+
+            # Lower bitrate for faster encoding
+            self.encoder.bit_rate = 1000000  # 1 Mbps
+
+            # CRITICAL LOW-LATENCY SETTINGS:
+            # - ultrafast: Fastest encoding preset
+            # - zerolatency: Disables lookahead and B-frames
+            # - intra-refresh: Avoids waiting for full keyframes
+            # - slice-max-size: Enables sliced encoding for lower latency
+            self.encoder.options = {
+                "preset": "ultrafast",
+                "tune": "zerolatency",
+                "intra-refresh": "1",  # Use intra-refresh instead of periodic keyframes
+                "slice-max-size": "1500",  # Max slice size for network packets
+                "x264opts": "bframes=0:ref=1:rc-lookahead=0",
+            }
+
+            # Small GOP size - more frequent keyframes means faster recovery from packet loss
+            self.encoder.gop_size = 30  # Keyframe every 1 second at 30fps
+
             self.encoder_initialized = True
-            logger.info(f"Encoder initialized: {width}x{height} @ {fps}fps")
+            logger.info(f"Low-latency encoder initialized: {width}x{height} @ {fps}fps")
         except Exception as e:
             logger.error(f"Failed to initialize encoder: {e}")
             raise
@@ -124,21 +146,6 @@ class H264VideoProcessor:
             logger.error(f"Unexpected error decoding: {e}")
 
         return frames
-
-    def process_to_grayscale(self, frame_rgb: CvFrame) -> CvFrame:
-        """Convert RGB frame to grayscale (3-channel for H.264)."""
-        try:
-            if frame_rgb is None or frame_rgb.size == 0:
-                logger.error("Empty frame received for grayscale conversion")
-                return frame_rgb
-
-            # Convert to grayscale
-            gray = cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2GRAY)
-            # Convert back to 3-channel (required for H.264 encoding)
-            return cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)
-        except Exception as e:
-            logger.error(f"Error converting to grayscale: {e}")
-            return frame_rgb
 
     def encode_frame(self, frame_rgb: CvFrame) -> list[bytes]:
         """Encode RGB frame to H.264 packets."""
