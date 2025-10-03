@@ -131,9 +131,10 @@ class VideoStreamApp(tk.Tk):
         self.webcam.open()
 
         # Start websocket client
+        ws_scheme = "wss" if self.app_data.server_address.startswith("https") else "ws"
         server_host = self.app_data.server_address.split("://")[1].split("/")[0]
         client = WebSocketVideoClient(
-            uri=f"ws://{server_host}/video",
+            uri=f"{ws_scheme}://{server_host}/video",
         )
 
         # Start sending stream
