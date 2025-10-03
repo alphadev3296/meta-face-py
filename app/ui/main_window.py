@@ -1,9 +1,10 @@
+from loguru import logger
 import asyncio
 import threading
 import tkinter as tk
 from tkinter import ttk
 
-from app.network.websocket import WebSocketClient
+from app.network.websocket import WebSocketVideoClient
 from app.schema.app_data import AppData
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS
 from app.ui.camera_panel import CameraPanel
@@ -25,7 +26,7 @@ class VideoStreamApp(tk.Tk):
 
         self.app_data = AppData.load_app_data()
         self.webcam: Webcam | None = None
-        self.ws_client: WebSocketClient | None = None
+        self.ws_client: WebSocketVideoClient | None = None
 
         self.title("Video Streaming Control Panel")
         self.geometry("1200x760")
@@ -133,13 +134,13 @@ class VideoStreamApp(tk.Tk):
 
         # Start websocket client
         server_host = self.app_data.server_address.split("://")[1].split("/")[0]
-        self.ws_client = WebSocketClient(
+        self.ws_client = WebSocketVideoClient(
             uri=f"ws://{server_host}/video",
         )
 
         # Start sending stream
         asyncio.run(
-            self.ws_client.send_stream(
+            self.ws_client.send_and_receive_stream(
                 byte_stream=VideoCodec.encode_h264(
                     frames=self.webcam.frame_generator(
                         frames_callback=self.on_new_frame,
@@ -148,7 +149,8 @@ class VideoStreamApp(tk.Tk):
                     height=self.webcam.height,
                     fps=self.webcam.fps,
                 ),
-                callback_update_status=self.update_status,
+                status_callback=self.update_status,
+                frame_callback=self.on_remote_frame,
             )
         )
 
@@ -158,3 +160,7 @@ class VideoStreamApp(tk.Tk):
 
     def on_new_frame(self, frame: CvFrame) -> None:
         self.local_video_panel.show_frame(frame)
+
+    def on_remote_frame(self, frame: CvFrame, frame_number: int) -> None:
+        self.video_panel.show_frame(frame)
+        logger.debug(f"Received frame {frame_number}")
