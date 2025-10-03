@@ -1,8 +1,9 @@
-from loguru import logger
 import asyncio
 import threading
 import tkinter as tk
 from tkinter import ttk
+
+from loguru import logger
 
 from app.network.websocket import WebSocketVideoClient
 from app.schema.app_data import AppData
