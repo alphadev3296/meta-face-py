@@ -1,4 +1,3 @@
-import asyncio
 import threading
 import tkinter as tk
 from tkinter import ttk
@@ -26,7 +25,6 @@ class VideoStreamApp(tk.Tk):
 
         self.app_data = AppData.load_app_data()
         self.webcam: Webcam | None = None
-        self.ws_client: WebSocketVideoClient | None = None
 
         self.title("Video Streaming Control Panel")
         self.geometry("1200x760")
@@ -134,19 +132,16 @@ class VideoStreamApp(tk.Tk):
 
         # Start websocket client
         server_host = self.app_data.server_address.split("://")[1].split("/")[0]
-        self.ws_client = WebSocketVideoClient(
+        client = WebSocketVideoClient(
             uri=f"ws://{server_host}/video",
         )
 
         # Start sending stream
-        asyncio.run(
-            self.ws_client.send_and_receive_stream(
-                frames=self.webcam.frame_generator(
-                    frames_callback=self.on_new_frame,
-                ),
-                status_callback=self.update_status,
-                frame_callback=self.on_remote_frame,
-            )
+        client.start(
+            frames=self.webcam.frame_generator(
+                frames_callback=self.on_new_frame,
+            ),
+            frame_callback=self.on_remote_frame,
         )
 
         # Stop local camera
