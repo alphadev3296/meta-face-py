@@ -27,13 +27,19 @@ class VideoPreviewPanel(ttk.LabelFrame):
         # Convert BGR (OpenCV) -> RGB (Pillow)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Resize frame
-        ratio = frame.shape[1] / frame.shape[0]
-        resized_frame = cv2.resize(
-            frame,
-            (int(self.height * ratio), self.height),
-            interpolation=cv2.INTER_AREA,
-        )
+        # Target display size
+        target_w = self.preview_label.winfo_width()
+        target_h = self.preview_label.winfo_height()
+        if target_w == 1 and target_h == 1:
+            # On the first call, size may still be 1, wait until widget is realized
+            target_w, target_h = 640, 480  # fallback default
+
+        # Compute scale ratio while preserving aspect ratio
+        h, w = frame.shape[:2]
+        ratio = min(target_w / w, target_h / h)
+        new_w, new_h = int(w * ratio), int(h * ratio)
+
+        resized_frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
         # Convert to PIL Image
         img = Image.fromarray(resized_frame)
@@ -43,4 +49,4 @@ class VideoPreviewPanel(ttk.LabelFrame):
 
         # Update preview
         self.preview_label.config(image=imgtk)
-        self.preview_label.image = imgtk  # type: ignore  # noqa: PGH003
+        self.preview_label.image = imgtk  # keep reference
