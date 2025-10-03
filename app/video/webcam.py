@@ -1,3 +1,4 @@
+from collections.abc import Callable, Generator
 from typing import Any
 
 import cv2
@@ -60,3 +61,25 @@ class Webcam:
         if self.cap is None:
             return False, CvFrame(0)
         return self.cap.read()
+
+    def frame_generator(
+        self,
+        frames_callback: Callable[[CvFrame], None] | None = None,
+    ) -> Generator[CvFrame, None, None]:
+        try:
+            while True:
+                if self.cap is None:
+                    break
+                ret, frame = self.cap.read()
+                if not ret:
+                    break
+
+                if frames_callback is not None:
+                    frames_callback(frame)
+
+                yield frame
+
+                # sleep for 1/fps seconds
+                cv2.waitKey(int(1000 / self.fps))
+        finally:
+            self.close()

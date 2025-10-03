@@ -11,7 +11,7 @@ def test_byte_stream() -> None:
             yield os.urandom(1024 + i)
 
     async def send_bytes() -> None:
-        client = WebSocketClient("ws://localhost:8000/ws/video", reconnect_delay=3, max_retries=3)
+        client = WebSocketClient("ws://localhost:8000/video", reconnect_delay=3, max_retries=3)
         await client.send_stream(face_byte_stream())
 
     asyncio.run(send_bytes())

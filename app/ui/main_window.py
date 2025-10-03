@@ -1,9 +1,11 @@
+import asyncio
 import threading
 import tkinter as tk
 from tkinter import ttk
 
 from loguru import logger
 
+from app.network.websocket import WebSocketClient
 from app.schema.app_data import AppData
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS
 from app.ui.camera_panel import CameraPanel
@@ -13,6 +15,7 @@ from app.ui.server_panel import ServerPanel
 from app.ui.status_bar import StatusBar
 from app.ui.stream_control_panel import StreamControlPanel
 from app.ui.video_preview import VideoPreviewPanel
+from app.video.codec import VideoCodec
 from app.video.webcam import CvFrame, Webcam
 
 
@@ -24,6 +27,7 @@ class VideoStreamApp(tk.Tk):
 
         self.app_data = AppData.load_app_data()
         self.webcam: Webcam | None = None
+        self.ws_client: WebSocketClient | None = None
 
         self.title("Video Streaming Control Panel")
         self.geometry("1200x760")
@@ -122,6 +126,7 @@ class VideoStreamApp(tk.Tk):
     def local_cam_thread(self) -> None:
         logger.info("Starting local camera...")
 
+        # Start local camera
         if self.webcam is not None:
             self.webcam.close()
 
@@ -134,13 +139,33 @@ class VideoStreamApp(tk.Tk):
         )
         self.webcam.open()
 
-        while True:
-            if self.webcam is None:
-                break
-            ret, frame = self.webcam.read()
-            if not ret:
-                break
-            self.on_new_frame(frame)
+        # Start websocket client
+        server_host = self.app_data.server_address.split("://")[1].split("/")[0]
+        self.ws_client = WebSocketClient(
+            uri=f"ws://{server_host}/video",
+        )
+
+        # Start sending stream
+        asyncio.run(
+            self.ws_client.send_stream(
+                byte_stream=VideoCodec.encode_h264(
+                    frames=self.webcam.frame_generator(
+                        frames_callback=self.on_new_frame,
+                    ),
+                    width=self.webcam.width,
+                    height=self.webcam.height,
+                    fps=self.webcam.fps,
+                ),
+                callback_connected=self.on_connected,
+                callback_disconnected=self.on_disconnected,
+            )
+        )
 
     def on_new_frame(self, frame: CvFrame) -> None:
         self.local_video_panel.show_frame(frame)
+
+    def on_connected(self) -> None:
+        self.update_status("Connected to server")
+
+    def on_disconnected(self) -> None:
+        self.update_status("Disconnected from server")
