@@ -15,7 +15,6 @@ from app.ui.server_panel import ServerPanel
 from app.ui.status_bar import StatusBar
 from app.ui.stream_control_panel import StreamControlPanel
 from app.ui.video_preview import VideoPreviewPanel
-from app.video.codec import VideoCodec
 from app.video.webcam import CvFrame, Webcam
 
 
@@ -142,13 +141,8 @@ class VideoStreamApp(tk.Tk):
         # Start sending stream
         asyncio.run(
             self.ws_client.send_and_receive_stream(
-                byte_stream=VideoCodec.encode_h264(
-                    frames=self.webcam.frame_generator(
-                        frames_callback=self.on_new_frame,
-                    ),
-                    width=self.webcam.width,
-                    height=self.webcam.height,
-                    fps=self.webcam.fps,
+                frames=self.webcam.frame_generator(
+                    frames_callback=self.on_new_frame,
                 ),
                 status_callback=self.update_status,
                 frame_callback=self.on_remote_frame,

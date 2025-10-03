@@ -1,3 +1,4 @@
+import time
 from collections.abc import Callable, Generator
 from typing import Any
 
@@ -80,6 +81,6 @@ class Webcam:
                 yield frame
 
                 # sleep for 1/fps seconds
-                cv2.waitKey(int(1000 / self.fps))
+                time.sleep(1 / self.fps)
         finally:
             self.close()
