@@ -3,8 +3,6 @@ import threading
 import tkinter as tk
 from tkinter import ttk
 
-from loguru import logger
-
 from app.network.websocket import WebSocketClient
 from app.schema.app_data import AppData
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS
@@ -109,23 +107,17 @@ class VideoStreamApp(tk.Tk):
         super().destroy()
 
     def stop_local_cam(self) -> None:
-        logger.info("Stopping local camera...")
-
         if self.webcam is not None:
             self.webcam.close()
             self.webcam = None
 
     async def connect_server(self) -> None:
-        logger.info("Connecting to server...")
         threading.Thread(target=self.local_cam_thread, daemon=True).start()
 
     async def disconnect_server(self) -> None:
-        logger.info("Disconnecting from server...")
         self.stop_local_cam()
 
     def local_cam_thread(self) -> None:
-        logger.info("Starting local camera...")
-
         # Start local camera
         if self.webcam is not None:
             self.webcam.close()
@@ -156,16 +148,13 @@ class VideoStreamApp(tk.Tk):
                     height=self.webcam.height,
                     fps=self.webcam.fps,
                 ),
-                callback_connected=self.on_connected,
-                callback_disconnected=self.on_disconnected,
+                callback_update_status=self.update_status,
             )
         )
 
+        # Stop local camera
+        self.stream_control_panel.on_disconnect()
+        self.update_status("Disconnected from server")
+
     def on_new_frame(self, frame: CvFrame) -> None:
         self.local_video_panel.show_frame(frame)
-
-    def on_connected(self) -> None:
-        self.update_status("Connected to server")
-
-    def on_disconnected(self) -> None:
-        self.update_status("Disconnected from server")

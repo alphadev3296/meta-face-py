@@ -6,7 +6,7 @@ from loguru import logger
 
 
 class WebSocketClient:
-    def __init__(self, uri: str, reconnect_delay: int = 5, max_retries: int = 5) -> None:
+    def __init__(self, uri: str, reconnect_delay: int = 5, max_retries: int = 3) -> None:
         """
         Args:
             uri (str): WebSocket server URI, e.g. "ws://localhost:8000/ws/video"
@@ -20,8 +20,7 @@ class WebSocketClient:
     async def send_stream(
         self,
         byte_stream: Generator[bytes, None, None],
-        callback_connected: Callable[[], None] | None = None,
-        callback_disconnected: Callable[[], None] | None = None,
+        callback_update_status: Callable[[str], None] | None = None,
     ) -> None:
         """
         Connect to server and send H264 stream chunks.
@@ -34,27 +33,33 @@ class WebSocketClient:
             try:
                 logger.info(f"Connecting to {self.uri} (attempt {attempt + 1})")
                 async with websockets.connect(self.uri, max_size=None) as ws:
-                    logger.info("WebSocket connection established.")
-                    if callback_connected is not None:
-                        callback_connected()
+                    msg = "WebSocket connection established."
+                    logger.info(msg)
+                    if callback_update_status is not None:
+                        callback_update_status(msg)
 
                     for packet in byte_stream:
                         await ws.send(packet)
                         logger.debug(f"Sent packet size: {len(packet)} bytes")
 
-                    logger.info("Finished sending stream.")
-                    if callback_disconnected is not None:
-                        callback_disconnected()
+                    msg = "Finished sending stream."
+                    logger.info(msg)
+                    if callback_update_status is not None:
+                        callback_update_status(msg)
 
                     return  # Done streaming if no errors
             except (OSError, websockets.exceptions.WebSocketException) as e:
-                logger.error(f"WebSocket error: {e}. Retrying in {self.reconnect_delay}s...")
+                msg = f"WebSocket error: {e}. Retrying in {self.reconnect_delay}s..."
+                logger.error(msg)
+                if callback_update_status is not None:
+                    callback_update_status(msg)
                 attempt += 1
                 await asyncio.sleep(self.reconnect_delay)
 
-        logger.error("Max retries exceeded. Stream could not be sent.")
-        if callback_disconnected is not None:
-            callback_disconnected()
+        msg = "Max retries exceeded. Stream could not be sent."
+        logger.error(msg)
+        if callback_update_status is not None:
+            callback_update_status(msg)
 
     @classmethod
     def stub_sender(cls, encoded_stream: Generator[bytes, None, None]) -> None:
