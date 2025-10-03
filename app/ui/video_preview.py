@@ -1,11 +1,9 @@
 import tkinter as tk
-from collections.abc import Callable
 from tkinter import ttk
 
 import cv2
 from PIL import Image, ImageTk
 
-from app.schema.app_data import AppData
 from app.video.webcam import CvFrame
 
 
