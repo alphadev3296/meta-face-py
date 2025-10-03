@@ -53,7 +53,7 @@ class H264VideoProcessor:
             self.encoder.framerate = Fraction(fps, 1)
 
             # Lower bitrate for faster encoding
-            self.encoder.bit_rate = 1000000  # 1 Mbps
+            self.encoder.bit_rate = 10 << 20  # 10 Mbps
 
             # CRITICAL LOW-LATENCY SETTINGS:
             # - ultrafast: Fastest encoding preset
@@ -61,7 +61,7 @@ class H264VideoProcessor:
             # - intra-refresh: Avoids waiting for full keyframes
             # - slice-max-size: Enables sliced encoding for lower latency
             self.encoder.options = {
-                "preset": "ultrafast",
+                "preset": "veryfast",
                 "tune": "zerolatency",
                 "intra-refresh": "1",  # Use intra-refresh instead of periodic keyframes
                 "slice-max-size": "1500",  # Max slice size for network packets
