@@ -13,7 +13,7 @@ from app.ui.server_panel import ServerPanel
 from app.ui.status_bar import StatusBar
 from app.ui.stream_control_panel import StreamControlPanel
 from app.ui.video_preview import VideoPreviewPanel
-from app.video.webcam import Webcam
+from app.video.webcam import CvFrame, Webcam
 
 
 class VideoStreamApp(tk.Tk):
@@ -101,9 +101,25 @@ class VideoStreamApp(tk.Tk):
 
     def destroy(self) -> None:
         self.app_data.save_app_data()
+        self.stop_local_cam()
         super().destroy()
 
-    def start_local_cam(self) -> None:
+    def stop_local_cam(self) -> None:
+        logger.info("Stopping local camera...")
+
+        if self.webcam is not None:
+            self.webcam.close()
+            self.webcam = None
+
+    async def connect_server(self) -> None:
+        logger.info("Connecting to server...")
+        threading.Thread(target=self.local_cam_thread, daemon=True).start()
+
+    async def disconnect_server(self) -> None:
+        logger.info("Disconnecting from server...")
+        self.stop_local_cam()
+
+    def local_cam_thread(self) -> None:
         logger.info("Starting local camera...")
 
         if self.webcam is not None:
@@ -118,16 +134,13 @@ class VideoStreamApp(tk.Tk):
         )
         self.webcam.open()
 
-        for frame in self.webcam.capture_frames():
-            self.local_video_panel.show_frame(frame)
+        while True:
+            if self.webcam is None:
+                break
+            ret, frame = self.webcam.read()
+            if not ret:
+                break
+            self.on_new_frame(frame)
 
-    async def connect_server(self) -> None:
-        logger.info("Connecting to server...")
-        threading.Thread(target=self.start_local_cam).start()
-
-    async def disconnect_server(self) -> None:
-        logger.info("Disconnecting from server...")
-
-        if self.webcam is not None:
-            self.webcam.close()
-            self.webcam = None
+    def on_new_frame(self, frame: CvFrame) -> None:
+        self.local_video_panel.show_frame(frame)

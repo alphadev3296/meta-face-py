@@ -36,10 +36,10 @@ class StreamControlPanel(ttk.LabelFrame):
         self.connect_btn.config(state="disabled")
         self.disconnect_btn.config(state="normal")
         self.status_callback("Connecting to server...")
-        threading.Thread(target=lambda: asyncio.run(self.connect_callback())).start()
+        threading.Thread(target=lambda: asyncio.run(self.connect_callback()), daemon=True).start()
 
     def on_disconnect(self) -> None:
         self.disconnect_btn.config(state="disabled")
         self.connect_btn.config(state="normal")
         self.status_callback("Disconnecting from server...")
-        threading.Thread(target=lambda: asyncio.run(self.disconnect_callback())).start()
+        threading.Thread(target=lambda: asyncio.run(self.disconnect_callback()), daemon=True).start()
