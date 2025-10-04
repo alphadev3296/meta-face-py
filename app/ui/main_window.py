@@ -1,7 +1,16 @@
+import threading
 import tkinter as tk
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from tkinter import ttk
 
+from jose import jwt
+from loguru import logger
+
+from app.config.auth import config as cfg_auth
+from app.network.websocket import WebSocketVideoClient
 from app.schema.app_data import AppData
+from app.schema.camera_resolution import CAMERA_RESOLUTIONS
 from app.ui.camera_panel import CameraPanel
 from app.ui.local_video_panel import LocalVideoPanel
 from app.ui.processing_panel import ProcessingPanel
@@ -9,6 +18,7 @@ from app.ui.server_panel import ServerPanel
 from app.ui.status_bar import StatusBar
 from app.ui.stream_control_panel import StreamControlPanel
 from app.ui.video_preview import VideoPreviewPanel
+from app.video.webcam import CvFrame, Webcam
 
 
 class VideoStreamApp(tk.Tk):
@@ -18,10 +28,11 @@ class VideoStreamApp(tk.Tk):
         super().__init__()
 
         self.app_data = AppData.load_app_data()
+        self.webcam: Webcam | None = None
 
         self.title("Video Streaming Control Panel")
-        self.geometry("1200x720")
-        self.minsize(1200, 720)
+        self.geometry("1200x760")
+        self.minsize(1200, 760)
 
         # Configure grid
         self.columnconfigure(0, weight=0, minsize=220)
@@ -29,9 +40,9 @@ class VideoStreamApp(tk.Tk):
         self.rowconfigure(0, weight=1)
 
         # Create main panels
+        self.create_status_bar()
         self.create_control_panel()
         self.create_video_panel()
-        self.create_status_bar()
 
     def create_control_panel(self) -> None:
         """Create left control panel"""
@@ -69,11 +80,13 @@ class VideoStreamApp(tk.Tk):
             app_data=self.app_data,
         )
         self.local_video_panel.grid(row=3, column=0, sticky="nsew", pady=2)
-        control_frame.rowconfigure(3, weight=1)
+        control_frame.rowconfigure(3, weight=0)
 
         self.stream_control_panel = StreamControlPanel(
             parent=control_frame,
             status_callback=self.update_status,
+            connect_callback=self.connect_server,
+            disconnect_callback=self.disconnect_server,
         )
         self.stream_control_panel.grid(row=4, column=0, sticky="ew", pady=2)
 
@@ -93,4 +106,71 @@ class VideoStreamApp(tk.Tk):
 
     def destroy(self) -> None:
         self.app_data.save_app_data()
+        self.stop_local_cam()
         super().destroy()
+
+    def stop_local_cam(self) -> None:
+        if self.webcam is not None:
+            self.webcam.close()
+            self.webcam = None
+
+    async def connect_server(self) -> None:
+        threading.Thread(target=self.local_cam_thread, daemon=True).start()
+
+    async def disconnect_server(self) -> None:
+        self.stop_local_cam()
+
+    def local_cam_thread(self) -> None:
+        # Start local camera
+        if self.webcam is not None:
+            self.webcam.close()
+
+        resolution = CAMERA_RESOLUTIONS[self.app_data.resolution]
+        self.webcam = Webcam(
+            device=self.app_data.camera_id,
+            width=resolution[0],
+            height=resolution[1],
+            fps=self.app_data.fps,
+        )
+        self.webcam.open()
+
+        # Start websocket client
+        ws_scheme = "wss" if self.app_data.server_address.startswith("https") else "ws"
+        server_host = self.app_data.server_address.split("://")[1].split("/")[0]
+        client = WebSocketVideoClient(
+            uri=f"{ws_scheme}://{server_host}/video",
+        )
+
+        # Start sending stream
+        jwt_token = jwt.encode(
+            {
+                "sub": "",
+                "exp": datetime.now(tz=UTC) + timedelta(minutes=cfg_auth.JWT_TOKEN_EXPIRE_MINS),
+                "face_swap": self.app_data.face_swap,
+                "face_enhance": self.app_data.face_enhance,
+            },
+            self.app_data.secret,
+            algorithm=cfg_auth.JWT_ALGORITHM,
+        )
+        with Path(self.app_data.photo_path).open("rb") as f:
+            photo_data = f.read()
+
+        client.start(
+            frames=self.webcam.frame_generator(
+                frames_callback=self.on_new_frame,
+            ),
+            frame_callback=self.on_remote_frame,
+            jwt_token=jwt_token,
+            photo=photo_data,
+        )
+
+        # Stop local camera
+        self.stream_control_panel.on_disconnect()
+        self.update_status("Disconnected from server")
+
+    def on_new_frame(self, frame: CvFrame) -> None:
+        self.local_video_panel.show_frame(frame)
+
+    def on_remote_frame(self, frame: CvFrame, frame_number: int) -> None:
+        self.video_panel.show_frame(frame)
+        logger.debug(f"Received frame {frame_number}")
