@@ -1,6 +1,8 @@
+import asyncio
 import tkinter as tk
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from tkinter import ttk
+from typing import Any
 
 from app.schema.app_data import AppData
 
@@ -11,13 +13,19 @@ class ServerPanel(ttk.LabelFrame):
     def __init__(
         self,
         parent: ttk.Frame,
-        status_callback: Callable[[str], None],
         app_data: AppData,
+        status_callback: Callable[[str], None],
+        connect_callback: Callable[[], Coroutine[Any, Any, None]],
+        disconnect_callback: Callable[[], Coroutine[Any, Any, None]],
     ) -> None:
         super().__init__(parent, text="Server", padding=5)
 
         self.app_data = app_data
+
+        # Callbacks
         self.status_callback = status_callback
+        self.connect_callback = connect_callback
+        self.disconnect_callback = disconnect_callback
 
         # Server address
         ttk.Label(self, text="Address:").grid(row=0, column=0, sticky="w", pady=2)
@@ -33,7 +41,21 @@ class ServerPanel(ttk.LabelFrame):
         self.secret_entry.grid(row=1, column=1, pady=2, sticky="ew")
         self.secret_entry.bind("<FocusOut>", self.on_secret_change)
 
-        self.columnconfigure(1, weight=1)
+        # Tasks
+        self.connect_task: asyncio.Task[None] | None = None
+        self.disconnect_task: asyncio.Task[None] | None = None
+
+        # Connect button
+        self.connect_btn = ttk.Button(self, text="Connect", command=self.handle_connect, width=18)
+        self.connect_btn.grid(row=2, column=0, columnspan=2, pady=2, sticky="ew")
+
+        # Disconnect button
+        self.disconnect_btn = ttk.Button(
+            self, text="Disconnect", command=self.hadle_disconnect, state="disabled", width=18
+        )
+        self.disconnect_btn.grid(row=3, column=0, columnspan=2, pady=2, sticky="ew")
+
+        self.columnconfigure(0, weight=1)
 
     def on_address_change(self, _event=None) -> None:  # type: ignore  # noqa: ANN001, PGH003
         self.status_callback(f"Server address updated: {self.address_var.get()}")
@@ -43,3 +65,15 @@ class ServerPanel(ttk.LabelFrame):
         if self.secret_var.get():
             self.status_callback("Secret updated")
             self.app_data.secret = self.secret_var.get()
+
+    def handle_connect(self) -> None:
+        self.connect_btn.config(state="disabled")
+        self.disconnect_btn.config(state="normal")
+        self.status_callback("Connecting to server...")
+        self.connect_task = asyncio.create_task(self.connect_callback())
+
+    def hadle_disconnect(self) -> None:
+        self.disconnect_btn.config(state="disabled")
+        self.connect_btn.config(state="normal")
+        self.status_callback("Disconnecting from server...")
+        self.disconnect_task = asyncio.create_task(self.disconnect_callback())

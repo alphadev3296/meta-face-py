@@ -20,7 +20,6 @@ from app.ui.camera_panel import CameraPanel
 from app.ui.processing_panel import ProcessingPanel
 from app.ui.server_panel import ServerPanel
 from app.ui.status_bar import StatusBar
-from app.ui.stream_control_panel import StreamControlPanel
 from app.ui.video_preview import VideoPanel
 from app.video.webcam import CvFrame, Webcam
 
@@ -101,27 +100,21 @@ class VideoStreamApp(tk.Tk):
         )
         self.camera_panel.grid(row=0, column=0, sticky="ns", pady=2, padx=2)
 
-        self.server_panel = ServerPanel(
-            parent=control_frame,
-            status_callback=self.update_status,
-            app_data=self.app_data,
-        )
-        self.server_panel.grid(row=0, column=1, sticky="ns", pady=2, padx=2)
-
         self.processing_panel = ProcessingPanel(
             parent=control_frame,
             status_callback=self.update_status,
             app_data=self.app_data,
         )
-        self.processing_panel.grid(row=0, column=2, sticky="ns", pady=2, padx=2)
+        self.processing_panel.grid(row=0, column=1, sticky="ns", pady=2, padx=2)
 
-        self.stream_control_panel = StreamControlPanel(
+        self.server_panel = ServerPanel(
             parent=control_frame,
+            app_data=self.app_data,
             status_callback=self.update_status,
             connect_callback=self.connect_server,
             disconnect_callback=self.disconnect_server,
         )
-        self.stream_control_panel.grid(row=0, column=3, sticky="ns", pady=2, padx=2)
+        self.server_panel.grid(row=0, column=2, sticky="ns", pady=2, padx=2)
 
     def create_video_panel(self) -> None:
         """Create right video preview panel"""
