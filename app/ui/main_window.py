@@ -2,6 +2,7 @@ import asyncio
 import base64
 import tkinter as tk
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from pathlib import Path
 from tkinter import ttk
 
@@ -25,6 +26,14 @@ from app.ui.video_preview import VideoPreviewPanel
 from app.video.webcam import CvFrame, Webcam
 
 
+class AppStatus(StrEnum):
+    IDLE = "Idle"
+    CONNECTING = "Connecting"
+    CONNECTED = "Connected"
+    DISCONNECTING = "Disconnecting"
+    DISCONNECTED = "Disconnected"
+
+
 class VideoStreamApp(tk.Tk):
     """Main application window"""
 
@@ -37,6 +46,7 @@ class VideoStreamApp(tk.Tk):
         self.vcam_frames: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=10)
 
         self.is_running = True
+        self.status = AppStatus.IDLE
 
         # Configure window
         self.title("Metaface Client")
@@ -173,6 +183,7 @@ class VideoStreamApp(tk.Tk):
             read_frame_func=self.webcam.read,
             on_camera_frame_callback=self.on_camera_frame,
             on_recv_frame_callback=self.on_receive_frame,
+            on_disconnect_callback=self.disconnect_server,
         )
         await self.webrtc_client.connect()
 

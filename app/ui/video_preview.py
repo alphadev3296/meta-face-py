@@ -11,7 +11,7 @@ class VideoPreviewPanel(ttk.LabelFrame):
     """Main video preview panel"""
 
     def __init__(self, parent: tk.Tk) -> None:
-        super().__init__(parent, text="Camera Preview", padding=5)
+        super().__init__(parent, text="Processed Stream", padding=5)
 
         self.processed_stream_label = ttk.Label(
             self, text="Processed Stream", anchor="center", background="gray30", foreground="white"

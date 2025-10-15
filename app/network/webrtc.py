@@ -1,5 +1,6 @@
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 import aiohttp
 import cv2
@@ -19,6 +20,7 @@ class WebRTCClient:
         read_frame_func: Callable[[], tuple[bool, CvFrame]],
         on_camera_frame_callback: Callable[[CvFrame], None] | None = None,
         on_recv_frame_callback: Callable[[CvFrame, int], None] | None = None,
+        on_disconnect_callback: Callable[[], Coroutine[Any, Any, None]] | None = None,
     ) -> None:
         self.pc = RTCPeerConnection()
         self.recv_frames: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=10)
@@ -30,6 +32,7 @@ class WebRTCClient:
 
         self.on_camera_frame_callback = on_camera_frame_callback
         self.on_recv_frame_callback = on_recv_frame_callback
+        self.on_disconnect_callback = on_disconnect_callback
 
     async def connect(self) -> None:
         """Establish WebRTC connection with server"""
@@ -63,6 +66,8 @@ class WebRTCClient:
                         self.recv_frames.put_nowait(img)
                     except Exception as e:
                         logger.error(f"Error receiving frame: {e}")
+                        if self.on_disconnect_callback is not None:
+                            await self.on_disconnect_callback()
                         break
 
         # Create offer
