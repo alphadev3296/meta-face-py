@@ -18,7 +18,7 @@ class LocalVideoPanel(ttk.LabelFrame):
         status_callback: Callable[[str], None],
         app_data: AppData,
     ) -> None:
-        super().__init__(parent, text="Local Video", padding=5)
+        super().__init__(parent, text="Camera Stream", padding=5)
 
         self.app_data = app_data
         self.status_callback = status_callback
@@ -26,38 +26,41 @@ class LocalVideoPanel(ttk.LabelFrame):
         self.height = 100
 
         # Show/hide checkbox
-        self.show_var = tk.BooleanVar(value=self.app_data.show_local_video)
-        self.show_cb = ttk.Checkbutton(
-            self, text="Show Local Video", variable=self.show_var, command=self.on_show_toggle
+        self.show_local_stream_var = tk.BooleanVar(value=self.app_data.show_local_video)
+        self.show_local_stream_cb = ttk.Checkbutton(
+            self,
+            text="Show Camera Stream",
+            variable=self.show_local_stream_var,
+            command=self.on_show_local_stream_toggle,
         )
-        self.show_cb.grid(row=0, column=0, sticky="w", pady=2)
+        self.show_local_stream_cb.grid(row=0, column=0, sticky="w", pady=2)
 
-        # Video preview
-        self.preview_frame = ttk.Frame(self, relief="sunken", borderwidth=1, height=self.height)
-        self.preview_frame.grid(row=1, column=0, pady=5, sticky="ew")
+        # Camera view
+        self.camera_view_frame = ttk.Frame(self, relief="sunken", borderwidth=1, height=self.height)
+        self.camera_view_frame.grid(row=1, column=0, pady=5, sticky="ew")
 
-        self.preview_label = ttk.Label(
-            self.preview_frame, text="Local Preview", anchor="center", background="gray20", foreground="white"
+        self.camera_view_label = ttk.Label(
+            self.camera_view_frame, text="Camera Stream", anchor="center", background="gray20", foreground="white"
         )
-        self.preview_label.pack(fill="both", expand=True)
+        self.camera_view_label.pack(fill="both", expand=True)
 
         self.rowconfigure(1, weight=0)
         self.columnconfigure(0, weight=1)
 
         # Initial state
-        self.on_show_toggle()
+        self.on_show_local_stream_toggle()
 
-    def on_show_toggle(self) -> None:
-        show_local_video = self.show_var.get()
+    def on_show_local_stream_toggle(self) -> None:
+        show_local_video = self.show_local_stream_var.get()
         self.app_data.show_local_video = show_local_video
         if show_local_video:
-            self.preview_label.pack(fill="both", expand=True)
+            self.camera_view_label.pack(fill="both", expand=True)
             self.status_callback("Local video preview shown")
         else:
-            self.preview_label.pack_forget()
+            self.camera_view_label.pack_forget()
             self.status_callback("Local video preview hidden")
 
-    def show_frame(self, frame: CvFrame) -> None:
+    def show_camera_frame(self, frame: CvFrame) -> None:
         # Convert BGR (OpenCV) -> RGB (Pillow)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
@@ -76,5 +79,5 @@ class LocalVideoPanel(ttk.LabelFrame):
         imgtk = ImageTk.PhotoImage(image=img)
 
         # Update preview
-        self.preview_label.config(image=imgtk)
-        self.preview_label.image = imgtk  # type: ignore  # noqa: PGH003
+        self.camera_view_label.config(image=imgtk)
+        self.camera_view_label.image = imgtk  # type: ignore  # noqa: PGH003

@@ -189,17 +189,17 @@ class VideoStreamApp(tk.Tk):
         # Paint black frame in video panel
         black_frame = np.zeros((360, 640, 3), np.uint8)
         try:
-            self.on_camera_frame(black_frame)
-            self.on_receive_frame(black_frame, 0)
+            self.local_video_panel.show_camera_frame(black_frame)
+            self.video_panel.show_processed_frame(black_frame)
         except:  # noqa: E722, S110
             pass
 
     def on_camera_frame(self, frame: CvFrame) -> None:
-        self.local_video_panel.show_frame(frame)
+        self.local_video_panel.show_camera_frame(frame)
 
     def on_receive_frame(self, frame: CvFrame, _frame_number: int) -> None:
         # Show frame
-        self.video_panel.show_frame(frame)
+        self.video_panel.show_processed_frame(frame)
 
         # Put frame in queue
         if self.vcam_frames.full():
