@@ -10,11 +10,5 @@
             "request": "launch",
             "module": "app.main"
         },
-        {
-            "name": "WebRTC",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "app.network.webrtc"
-        }
     ]
 }
