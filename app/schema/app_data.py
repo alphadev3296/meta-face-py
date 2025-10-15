@@ -14,7 +14,7 @@ class AppData(BaseModel):
     photo_path: str = ""
     face_swap: bool = True
     face_enhance: bool = True
-    show_local_video: bool = False
+    show_camera: bool = False
 
     @classmethod
     def load_app_data(cls) -> "AppData":

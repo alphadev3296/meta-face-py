@@ -125,7 +125,7 @@ class VideoStreamApp(tk.Tk):
 
     def create_video_panel(self) -> None:
         """Create right video preview panel"""
-        self.video_panel = VideoPanel(self)
+        self.video_panel = VideoPanel(self, self.app_data)
         self.video_panel.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
     def create_status_bar(self) -> None:
