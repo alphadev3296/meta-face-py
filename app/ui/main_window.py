@@ -32,6 +32,8 @@ class VideoStreamApp(tk.Tk):
         self.webcam: Webcam | None = None
         self.webrtc_client: WebRTCClient | None = None
 
+        self.is_running = True
+
         self.title("Video Streaming Control Panel")
         self.geometry("1200x760")
         self.minsize(1200, 760)
@@ -109,6 +111,7 @@ class VideoStreamApp(tk.Tk):
     def destroy(self) -> None:
         self.app_data.save_app_data()
         self.stop_local_cam()
+        self.is_running = False
         super().destroy()
 
     def stop_local_cam(self) -> None:
@@ -171,6 +174,6 @@ class VideoStreamApp(tk.Tk):
         logger.debug(f"Received frame {frame_number}")
 
     async def run(self) -> None:
-        while True:
+        while self.is_running:
             self.update()
             await asyncio.sleep(0.001)
