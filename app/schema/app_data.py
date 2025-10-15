@@ -15,6 +15,7 @@ class AppData(BaseModel):
     face_swap: bool = True
     face_enhance: bool = True
     show_camera: bool = False
+    zoom: float = 1.0
 
     @classmethod
     def load_app_data(cls) -> "AppData":

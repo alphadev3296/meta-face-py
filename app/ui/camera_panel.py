@@ -34,7 +34,7 @@ class CameraPanel(ttk.LabelFrame):
         )
         self.camera_combo.grid(row=0, column=1, pady=2, sticky="ew")
         self.camera_combo.current(min(len(webcam_list) - 1, self.app_data.camera_id))
-        self.camera_combo.bind("<<ComboboxSelected>>", self.on_camera_change)
+        self.camera_combo.bind("<<ComboboxSelected>>", self.handle_camera_change)
 
         # Resolution selection
         ttk.Label(self, text="Resolution:").grid(row=1, column=0, sticky="w", pady=2)
@@ -50,7 +50,7 @@ class CameraPanel(ttk.LabelFrame):
         )
         self.resolution_combo.grid(row=1, column=1, pady=2, sticky="ew")
         self.resolution_combo.current(list(CameraResolution).index(self.app_data.resolution))
-        self.resolution_combo.bind("<<ComboboxSelected>>", self.on_resolution_change)
+        self.resolution_combo.bind("<<ComboboxSelected>>", self.handle_resolution_change)
 
         # FPS selection
         ttk.Label(self, text="FPS:").grid(row=2, column=0, sticky="w", pady=2)
@@ -60,18 +60,44 @@ class CameraPanel(ttk.LabelFrame):
         )
         self.fps_combo.grid(row=2, column=1, pady=2, sticky="ew")
         self.fps_combo.set(str(self.app_data.fps))
-        self.fps_combo.bind("<<ComboboxSelected>>", self.on_fps_change)
+        self.fps_combo.bind("<<ComboboxSelected>>", self.handle_fps_change)
+
+        # Zoom slider
+        ttk.Label(self, text="Zoom:").grid(row=3, column=0, sticky="w", pady=2)
+        self.zoom_var = tk.DoubleVar(value=getattr(self.app_data, "zoom", 1.0))
+        self.zoom_slider = ttk.Scale(
+            self,
+            from_=1.0,
+            to=4.0,
+            orient="horizontal",
+            variable=self.zoom_var,
+            command=self.handle_zoom_change,
+        )
+        self.zoom_slider.grid(row=3, column=1, sticky="ew", pady=2)
+
+        # Optional: Display the zoom value next to the slider
+        self.zoom_value_label = ttk.Label(self, text=f"{self.zoom_var.get():.1f}x")
+        self.zoom_value_label.grid(row=3, column=2, sticky="w")
 
         self.columnconfigure(1, weight=1)
 
-    def on_camera_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
+    def handle_camera_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         self.status_callback(f"Camera changed to: {self.camera_var.get()}")
         self.app_data.camera_id = self.camera_combo.current()
 
-    def on_resolution_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
+    def handle_resolution_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         self.status_callback(f"Resolution set to: {self.resolution_var.get()}")
         self.app_data.resolution = list(CameraResolution)[self.resolution_combo.current()]
 
-    def on_fps_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
+    def handle_fps_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         self.status_callback(f"FPS set to: {self.fps_var.get()}")
         self.app_data.fps = int(self.fps_var.get())
+
+    def handle_zoom_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
+        value = float(self.zoom_var.get())
+        self.status_callback(f"Zoom set to: {value:.1f}x")
+        self.zoom_value_label.config(text=f"{value:.1f}x")
+
+        # Store zoom in AppData (if property exists)
+        if hasattr(self.app_data, "zoom"):
+            self.app_data.zoom = value
