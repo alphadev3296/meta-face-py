@@ -1,5 +1,6 @@
 import asyncio
 import base64
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -11,39 +12,32 @@ from loguru import logger
 
 from app.config.auth import config as cfg_auth
 from app.video.videotrack import WebcamVideoTrack
+from app.video.webcam import CvFrame, Webcam
 
 
 class WebRTCClient:
     def __init__(
         self,
-        device_id: int,
-        width: int,
-        height: int,
-        fps: int,
+        offer_url: str,
+        jwt_token: str,
+        photo_data: str,
+        read_frame_func: Callable[[], tuple[bool, CvFrame]] | None = None,
+        on_remote_frame_callback: Callable[[CvFrame, int], None] | None = None,
     ) -> None:
         self.pc = RTCPeerConnection()
         self.processed_frames = asyncio.Queue(maxsize=10)
 
-        self.device_id = device_id
-        self.width = width
-        self.height = height
-        self.fps = fps
+        self.offer_url = offer_url
+        self.jwt_token = jwt_token
+        self.photo_data = photo_data
+        self.read_frame_func = read_frame_func
+        self.on_remote_frame_callback = on_remote_frame_callback
 
-    async def connect(
-        self,
-        offer_url: str,
-        jwt_token: str,
-        photo_data: str,
-    ) -> None:
+    async def connect(self) -> None:
         """Establish WebRTC connection with server"""
 
         # Add webcam track
-        webcam_track = WebcamVideoTrack(
-            device_id=self.device_id,
-            width=self.width,
-            height=self.height,
-            fps=self.fps,
-        )
+        webcam_track = WebcamVideoTrack(read_frame_func=self.read_frame_func)
         self.pc.addTrack(webcam_track)
 
         # Handle incoming video track (processed frames from server)
@@ -57,6 +51,10 @@ class WebRTCClient:
                         # Convert to numpy array for display
                         img = frame.to_ndarray(format="rgb24")
                         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+                        # Call external callback
+                        if self.on_remote_frame_callback is not None:
+                            self.on_remote_frame_callback(img, frame.pts)
 
                         # Put frame in queue (non-blocking)
                         if self.processed_frames.full():
@@ -74,12 +72,12 @@ class WebRTCClient:
         async with (
             aiohttp.ClientSession() as session,
             session.post(
-                offer_url,
+                self.offer_url,
                 json={
                     "sdp": self.pc.localDescription.sdp,
                     "type": self.pc.localDescription.type,
-                    "token": jwt_token,
-                    "photo": photo_data,
+                    "token": self.jwt_token,
+                    "photo": self.photo_data,
                 },
                 headers={"Content-Type": "application/json"},
             ) as response,
@@ -132,12 +130,13 @@ async def main() -> None:
         "fps": 30,  # Frames per second
     }
 
-    client = WebRTCClient(
-        device_id=cfg["device_id"],
+    webcam = Webcam(
+        device=cfg["device_id"],
         width=cfg["width"],
         height=cfg["height"],
         fps=cfg["fps"],
     )
+    webcam.open()
 
     logger.info("Starting WebRTC client:")
     logger.info(f"  Resolution: {cfg['width']}x{cfg['height']}")
@@ -159,11 +158,18 @@ async def main() -> None:
             algorithm=cfg_auth.JWT_ALGORITHM,
         )
 
-        await client.connect(
+        def recv_frame(frame: CvFrame, pts: int) -> None:
+            logger.debug(f"Received frame {pts}: {frame.shape}")
+
+        client = WebRTCClient(
             offer_url=f"{cfg['server_url']}/offer",
             jwt_token=jwt_token,
             photo_data=photo_data,
+            read_frame_func=webcam.read,
+            on_remote_frame_callback=recv_frame,
         )
+
+        await client.connect()
         await client.display_loop()
     except KeyboardInterrupt:
         logger.debug("\nInterrupted by user")
