@@ -5,34 +5,51 @@ from pathlib import Path
 
 import aiohttp
 import cv2
-from aiortc import RTCPeerConnection, RTCSessionDescription
+from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from jose import jwt
+from loguru import logger
 
 from app.config.auth import config as cfg_auth
 from app.video.videotrack import WebcamVideoTrack
 
 
 class WebRTCClient:
-    def __init__(self, server_url, width=640, height=480, fps=30, bitrate=2000000):
-        self.server_url = server_url
+    def __init__(
+        self,
+        device_id: int,
+        width: int,
+        height: int,
+        fps: int,
+    ) -> None:
         self.pc = RTCPeerConnection()
         self.processed_frames = asyncio.Queue(maxsize=10)
+
+        self.device_id = device_id
         self.width = width
         self.height = height
         self.fps = fps
-        self.bitrate = bitrate
 
-    async def connect(self):
+    async def connect(
+        self,
+        offer_url: str,
+        jwt_token: str,
+        photo_data: str,
+    ) -> None:
         """Establish WebRTC connection with server"""
 
         # Add webcam track
-        webcam_track = WebcamVideoTrack(device_id=1, width=self.width, height=self.height, fps=self.fps)
-        sender = self.pc.addTrack(webcam_track)
+        webcam_track = WebcamVideoTrack(
+            device_id=self.device_id,
+            width=self.width,
+            height=self.height,
+            fps=self.fps,
+        )
+        self.pc.addTrack(webcam_track)
 
         # Handle incoming video track (processed frames from server)
         @self.pc.on("track")
-        async def on_track(track):
-            print(f"Receiving {track.kind} track")
+        async def on_track(track: MediaStreamTrack) -> None:
+            logger.debug(f"Receiving {track.kind} track")
             if track.kind == "video":
                 while True:
                     try:
@@ -46,56 +63,18 @@ class WebRTCClient:
                             self.processed_frames.get_nowait()
                         self.processed_frames.put_nowait(img)
                     except Exception as e:
-                        print(f"Error receiving frame: {e}")
+                        logger.error(f"Error receiving frame: {e}")
                         break
 
         # Create offer
         offer = await self.pc.createOffer()
         await self.pc.setLocalDescription(offer)
 
-        # # Apply encoding parameters
-        # if sender:
-        #     try:
-        #         parameters = sender.getCapabilities()
-
-        #         if not parameters.encodings:
-        #             parameters.encodings = [{}]
-
-        #         # Set bitrate and framerate
-        #         parameters.encodings[0].maxBitrate = self.bitrate
-
-        #         if hasattr(parameters.encodings[0], "maxFramerate"):
-        #             parameters.encodings[0].maxFramerate = self.fps
-
-        #         await sender.setParameters(parameters)
-
-        #         print("Encoding parameters applied:")
-        #         print(f"  Bitrate: {self.bitrate / 1000000:.1f} Mbps")
-        #         print(f"  Framerate: {self.fps} fps")
-
-        #     except Exception as e:
-        #         print(f"Warning: Could not set encoding parameters: {e}")
-
-        jwt_token = jwt.encode(
-            {
-                "sub": "",
-                "exp": datetime.now(tz=UTC) + timedelta(minutes=cfg_auth.JWT_TOKEN_EXPIRE_MINS),
-                "tone_enhance": False,
-                "face_enhance": False,
-            },
-            "qC7kQqEnscXo4A3Zh1p6uK2zBdRno8cYPm5t7UHs",
-            algorithm=cfg_auth.JWT_ALGORITHM,
-        )
-
-        # Read photo image
-        with Path(r"C:\Users\alpha\Downloads\output.png").open("rb") as f:
-            photo_data = base64.b64encode(f.read()).decode("utf-8")
-
         # Send offer to server
         async with (
             aiohttp.ClientSession() as session,
             session.post(
-                f"{self.server_url}/offer",
+                offer_url,
                 json={
                     "sdp": self.pc.localDescription.sdp,
                     "type": self.pc.localDescription.type,
@@ -110,9 +89,9 @@ class WebRTCClient:
             # Set remote description
             await self.pc.setRemoteDescription(RTCSessionDescription(sdp=answer["sdp"], type=answer["type"]))
 
-        print("WebRTC connection established")
+        logger.success("WebRTC connection established")
 
-    async def display_loop(self):
+    async def display_loop(self) -> None:
         """Display processed frames"""
         cv2.namedWindow("Processed Stream", cv2.WINDOW_NORMAL)
 
@@ -132,47 +111,64 @@ class WebRTCClient:
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
             except Exception as e:
-                print(f"Display error: {e}")
+                logger.error(f"Display error: {e}")
                 break
 
         cv2.destroyAllWindows()
 
-    async def close(self):
+    async def close(self) -> None:
         """Close connection and cleanup"""
         await self.pc.close()
-        print("Connection closed")
+        logger.debug("Connection closed")
 
 
-async def main():
+async def main() -> None:
     # Configuration
-    CONFIG = {
+    cfg = {
         "server_url": "http://localhost:8000",
+        "device_id": 1,
         "width": 640,  # Video width in pixels
         "height": 480,  # Video height in pixels
         "fps": 30,  # Frames per second
-        "bitrate": 2000000,  # Bitrate in bps (2000000 = 2 Mbps)
     }
 
     client = WebRTCClient(
-        server_url=CONFIG["server_url"],
-        width=CONFIG["width"],
-        height=CONFIG["height"],
-        fps=CONFIG["fps"],
-        bitrate=CONFIG["bitrate"],
+        device_id=cfg["device_id"],
+        width=cfg["width"],
+        height=cfg["height"],
+        fps=cfg["fps"],
     )
 
-    print(f"Starting WebRTC client:")
-    print(f"  Resolution: {CONFIG['width']}x{CONFIG['height']}")
-    print(f"  FPS: {CONFIG['fps']}")
-    print(f"  Bitrate: {CONFIG['bitrate'] / 1000000:.1f} Mbps")
+    logger.info("Starting WebRTC client:")
+    logger.info(f"  Resolution: {cfg['width']}x{cfg['height']}")
+    logger.info(f"  FPS: {cfg['fps']}")
 
     try:
-        await client.connect()
+        # Read photo image
+        with Path(r"C:\Users\alpha\Downloads\output.png").open("rb") as f:  # noqa: ASYNC230
+            photo_data = base64.b64encode(f.read()).decode("utf-8")
+
+        jwt_token = jwt.encode(
+            {
+                "sub": "",
+                "exp": datetime.now(tz=UTC) + timedelta(minutes=cfg_auth.JWT_TOKEN_EXPIRE_MINS),
+                "tone_enhance": False,
+                "face_enhance": False,
+            },
+            "qC7kQqEnscXo4A3Zh1p6uK2zBdRno8cYPm5t7UHs",
+            algorithm=cfg_auth.JWT_ALGORITHM,
+        )
+
+        await client.connect(
+            offer_url=f"{cfg['server_url']}/offer",
+            jwt_token=jwt_token,
+            photo_data=photo_data,
+        )
         await client.display_loop()
     except KeyboardInterrupt:
-        print("\nInterrupted by user")
+        logger.debug("\nInterrupted by user")
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
     finally:
         await client.close()
 
