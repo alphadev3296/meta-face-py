@@ -17,12 +17,11 @@ from app.network.webrtc import WebRTCClient
 from app.schema.app_data import AppData
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS
 from app.ui.camera_panel import CameraPanel
-from app.ui.local_video_panel import LocalVideoPanel
 from app.ui.processing_panel import ProcessingPanel
 from app.ui.server_panel import ServerPanel
 from app.ui.status_bar import StatusBar
 from app.ui.stream_control_panel import StreamControlPanel
-from app.ui.video_preview import VideoPreviewPanel
+from app.ui.video_preview import VideoPanel
 from app.video.webcam import CvFrame, Webcam
 
 
@@ -50,10 +49,10 @@ class VideoStreamApp(tk.Tk):
 
         # Configure window
         self.title("Metaface Client")
-        self.geometry("1200x760")
-        self.minsize(1200, 760)
+        self.geometry("920x560")
 
         # Configure grid
+        self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=0)
         self.rowconfigure(1, weight=1)
         self.rowconfigure(2, weight=0)
@@ -89,7 +88,10 @@ class VideoStreamApp(tk.Tk):
         control_frame.grid(row=0, column=0, sticky="nsew")
 
         # Configure control frame grid
-        control_frame.columnconfigure(0, weight=1)
+        control_frame.columnconfigure(0, weight=0)
+        control_frame.columnconfigure(1, weight=0)
+        control_frame.columnconfigure(2, weight=0)
+        control_frame.columnconfigure(3, weight=0)
 
         # Add panels
         self.camera_panel = CameraPanel(
@@ -113,14 +115,6 @@ class VideoStreamApp(tk.Tk):
         )
         self.processing_panel.grid(row=0, column=2, sticky="ns", pady=2, padx=2)
 
-        self.local_video_panel = LocalVideoPanel(
-            parent=control_frame,
-            status_callback=self.update_status,
-            app_data=self.app_data,
-        )
-        self.local_video_panel.grid(row=3, column=0, sticky="nsew", pady=2)
-        control_frame.rowconfigure(3, weight=0)
-
         self.stream_control_panel = StreamControlPanel(
             parent=control_frame,
             status_callback=self.update_status,
@@ -131,7 +125,7 @@ class VideoStreamApp(tk.Tk):
 
     def create_video_panel(self) -> None:
         """Create right video preview panel"""
-        self.video_panel = VideoPreviewPanel(self)
+        self.video_panel = VideoPanel(self)
         self.video_panel.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
     def create_status_bar(self) -> None:
@@ -200,13 +194,13 @@ class VideoStreamApp(tk.Tk):
         # Paint black frame in video panel
         black_frame = np.zeros((360, 640, 3), np.uint8)
         try:
-            self.local_video_panel.show_camera_frame(black_frame)
+            self.video_panel.show_camera_frame(black_frame)
             self.video_panel.show_processed_frame(black_frame)
         except:  # noqa: E722, S110
             pass
 
     def on_camera_frame(self, frame: CvFrame) -> None:
-        self.local_video_panel.show_camera_frame(frame)
+        self.video_panel.show_camera_frame(frame)
 
     def on_receive_frame(self, frame: CvFrame, _frame_number: int) -> None:
         # Show frame
