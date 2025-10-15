@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tkinter import ttk
 
+import cv2
 import numpy as np
 import pyvirtualcam
 from jose import jwt
@@ -191,6 +192,10 @@ class VideoStreamApp(tk.Tk):
             width, height = CAMERA_RESOLUTIONS[self.app_data.resolution]
             fps = self.app_data.fps
 
+            if self.vcam_frames.full():
+                self.vcam_frames.get_nowait()
+            self.vcam_frames.put_nowait(np.zeros((height, width, 3), np.uint8))
+
             try:
                 vcam = pyvirtualcam.Camera(width, height, fps)
                 while self.is_running:
@@ -207,12 +212,14 @@ class VideoStreamApp(tk.Tk):
                         frame = np.zeros((height, width, 3), np.uint8)
 
                     try:
+                        if frame.shape != (height, width, 3):
+                            frame = cv2.resize(frame, (width, height))
                         vcam.send(frame)
                     except Exception as ex:
-                        logger.error(f"Error sending frame to virtual camera: {ex}")
+                        logger.debug(f"Error sending frame to virtual camera: {ex}")
                 vcam.close()
-            except Exception as ex:
-                logger.error(f"Error creating virtual camera: {ex}")
+            except:  # noqa: E722
+                asyncio.sleep(0.01)
 
     def on_new_frame(self, frame: CvFrame) -> None:
         self.local_video_panel.show_frame(frame)
