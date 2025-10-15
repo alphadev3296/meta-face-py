@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tkinter import ttk
 
+import numpy as np
 from jose import jwt
 from loguru import logger
 
@@ -110,20 +111,32 @@ class VideoStreamApp(tk.Tk):
 
     def destroy(self) -> None:
         self.app_data.save_app_data()
-        self.stop_local_cam()
+        asyncio.create_task(self.stop_local_cam())  # noqa: RUF006
         self.is_running = False
         super().destroy()
 
-    def stop_local_cam(self) -> None:
+    async def stop_local_cam(self) -> None:
         if self.webcam is not None:
             self.webcam.close()
             self.webcam = None
+
+        # Wait for webrtc client to close
+        if self.webrtc_client is not None:
+            await self.webrtc_client.close()
+
+        # Paint black frame
+        black_frame = np.zeros((360, 640, 3), np.uint8)
+        try:
+            self.on_new_frame(black_frame)
+            self.on_remote_frame(black_frame, 0)
+        except:  # noqa: E722, S110
+            pass
 
     async def connect_server(self) -> None:
         await self.local_cam_thread()
 
     async def disconnect_server(self) -> None:
-        self.stop_local_cam()
+        await self.stop_local_cam()
 
     async def local_cam_thread(self) -> None:
         # Start local camera
@@ -139,9 +152,7 @@ class VideoStreamApp(tk.Tk):
         )
         self.webcam.open()
 
-        # Start webrtc client
-
-        # Start sending stream
+        # Create JWT token
         jwt_token = jwt.encode(
             {
                 "sub": "",
@@ -153,15 +164,19 @@ class VideoStreamApp(tk.Tk):
             self.app_data.secret,
             algorithm=cfg_auth.JWT_ALGORITHM,
         )
+
+        # Read photo image
         with Path(self.app_data.photo_path).open("rb") as f:  # noqa: ASYNC230
             photo_data = f.read()
             b64_photo = base64.b64encode(photo_data).decode("utf-8")
 
+        # Create WebRTC client
         self.webrtc_client = WebRTCClient(
             offer_url=f"{self.app_data.server_address}/offer",
             jwt_token=jwt_token,
             b64_photo=b64_photo,
             read_frame_func=self.webcam.read,
+            on_camera_frame_callback=self.on_new_frame,
             on_recv_frame_callback=self.on_remote_frame,
         )
         await self.webrtc_client.connect()

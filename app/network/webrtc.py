@@ -17,6 +17,7 @@ class WebRTCClient:
         jwt_token: str,
         b64_photo: str,
         read_frame_func: Callable[[], tuple[bool, CvFrame]],
+        on_camera_frame_callback: Callable[[CvFrame], None] | None = None,
         on_recv_frame_callback: Callable[[CvFrame, int], None] | None = None,
     ) -> None:
         self.pc = RTCPeerConnection()
@@ -26,13 +27,18 @@ class WebRTCClient:
         self.jwt_token = jwt_token
         self.b64_photo = b64_photo
         self.read_frame_func = read_frame_func
+
+        self.on_camera_frame_callback = on_camera_frame_callback
         self.on_recv_frame_callback = on_recv_frame_callback
 
     async def connect(self) -> None:
         """Establish WebRTC connection with server"""
 
         # Add webcam track
-        webcam_track = WebcamVideoTrack(read_frame_func=self.read_frame_func)
+        webcam_track = WebcamVideoTrack(
+            read_frame_func=self.read_frame_func,
+            on_camera_frame_callback=self.on_camera_frame_callback,
+        )
         self.pc.addTrack(webcam_track)
 
         # Handle incoming video track (processed frames from server)
