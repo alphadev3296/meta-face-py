@@ -38,7 +38,8 @@ class VideoStreamApp(tk.Tk):
 
         self.is_running = True
 
-        self.title("Video Streaming Control Panel")
+        # Configure window
+        self.title("Metaface Client")
         self.geometry("1200x760")
         self.minsize(1200, 760)
 
@@ -53,7 +54,24 @@ class VideoStreamApp(tk.Tk):
         self.create_video_panel()
 
         # Start virtual camera loop
-        asyncio.create_task(self.update_virtual_camera_loop())  # noqa: RUF006
+        asyncio.create_task(self.virtual_camera_loop())  # noqa: RUF006
+
+    async def run_async(self) -> None:
+        """
+        Run main event loop asynchronously.
+        """
+        while self.is_running:
+            self.update()
+            await asyncio.sleep(0.001)
+
+    def destroy(self) -> None:
+        """
+        Callback method to be called when window is closed
+        """
+        self.app_data.save_app_data()
+        asyncio.create_task(self.disconnect_server())  # noqa: RUF006
+        self.is_running = False
+        super().destroy()
 
     def create_control_panel(self) -> None:
         """Create left control panel"""
@@ -115,36 +133,7 @@ class VideoStreamApp(tk.Tk):
         """Update status bar message"""
         self.status_bar.set_status(message)
 
-    def destroy(self) -> None:
-        self.app_data.save_app_data()
-        asyncio.create_task(self.stop_local_cam())  # noqa: RUF006
-        self.is_running = False
-        super().destroy()
-
-    async def stop_local_cam(self) -> None:
-        if self.webcam is not None:
-            self.webcam.close()
-            self.webcam = None
-
-        # Wait for webrtc client to close
-        if self.webrtc_client is not None:
-            await self.webrtc_client.close()
-
-        # Paint black frame
-        black_frame = np.zeros((360, 640, 3), np.uint8)
-        try:
-            self.on_new_frame(black_frame)
-            self.on_remote_frame(black_frame, 0)
-        except:  # noqa: E722, S110
-            pass
-
     async def connect_server(self) -> None:
-        await self.local_cam_thread()
-
-    async def disconnect_server(self) -> None:
-        await self.stop_local_cam()
-
-    async def local_cam_thread(self) -> None:
         # Start local camera
         if self.webcam is not None:
             self.webcam.close()
@@ -182,12 +171,42 @@ class VideoStreamApp(tk.Tk):
             jwt_token=jwt_token,
             b64_photo=b64_photo,
             read_frame_func=self.webcam.read,
-            on_camera_frame_callback=self.on_new_frame,
-            on_recv_frame_callback=self.on_remote_frame,
+            on_camera_frame_callback=self.on_camera_frame,
+            on_recv_frame_callback=self.on_receive_frame,
         )
         await self.webrtc_client.connect()
 
-    async def update_virtual_camera_loop(self) -> None:
+    async def disconnect_server(self) -> None:
+        # Close local camera
+        if self.webcam is not None:
+            self.webcam.close()
+            self.webcam = None
+
+        # Wait for webrtc client to close
+        if self.webrtc_client is not None:
+            await self.webrtc_client.close()
+
+        # Paint black frame in video panel
+        black_frame = np.zeros((360, 640, 3), np.uint8)
+        try:
+            self.on_camera_frame(black_frame)
+            self.on_receive_frame(black_frame, 0)
+        except:  # noqa: E722, S110
+            pass
+
+    def on_camera_frame(self, frame: CvFrame) -> None:
+        self.local_video_panel.show_frame(frame)
+
+    def on_receive_frame(self, frame: CvFrame, _frame_number: int) -> None:
+        # Show frame
+        self.video_panel.show_frame(frame)
+
+        # Put frame in queue
+        if self.vcam_frames.full():
+            self.vcam_frames.get_nowait()
+        self.vcam_frames.put_nowait(frame)
+
+    async def virtual_camera_loop(self) -> None:
         while self.is_running:
             width, height = CAMERA_RESOLUTIONS[self.app_data.resolution]
             fps = self.app_data.fps
@@ -220,20 +239,3 @@ class VideoStreamApp(tk.Tk):
                 vcam.close()
             except:  # noqa: E722
                 await asyncio.sleep(0.01)
-
-    def on_new_frame(self, frame: CvFrame) -> None:
-        self.local_video_panel.show_frame(frame)
-
-    def on_remote_frame(self, frame: CvFrame, _frame_number: int) -> None:
-        # Show frame
-        self.video_panel.show_frame(frame)
-
-        # Put frame in queue
-        if self.vcam_frames.full():
-            self.vcam_frames.get_nowait()
-        self.vcam_frames.put_nowait(frame)
-
-    async def run(self) -> None:
-        while self.is_running:
-            self.update()
-            await asyncio.sleep(0.001)
