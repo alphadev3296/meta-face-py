@@ -54,9 +54,9 @@ class VideoStreamApp(tk.Tk):
         self.minsize(1200, 760)
 
         # Configure grid
-        self.columnconfigure(0, weight=0, minsize=220)
-        self.columnconfigure(1, weight=1)
-        self.rowconfigure(0, weight=1)
+        self.rowconfigure(0, weight=0)
+        self.rowconfigure(1, weight=1)
+        self.rowconfigure(2, weight=0)
 
         # Create main panels
         self.create_status_bar()
@@ -97,21 +97,21 @@ class VideoStreamApp(tk.Tk):
             status_callback=self.update_status,
             app_data=self.app_data,
         )
-        self.camera_panel.grid(row=0, column=0, sticky="ew", pady=2)
+        self.camera_panel.grid(row=0, column=0, sticky="ns", pady=2, padx=2)
 
         self.server_panel = ServerPanel(
             parent=control_frame,
             status_callback=self.update_status,
             app_data=self.app_data,
         )
-        self.server_panel.grid(row=1, column=0, sticky="ew", pady=2)
+        self.server_panel.grid(row=0, column=1, sticky="ns", pady=2, padx=2)
 
         self.processing_panel = ProcessingPanel(
             parent=control_frame,
             status_callback=self.update_status,
             app_data=self.app_data,
         )
-        self.processing_panel.grid(row=2, column=0, sticky="ew", pady=2)
+        self.processing_panel.grid(row=0, column=2, sticky="ns", pady=2, padx=2)
 
         self.local_video_panel = LocalVideoPanel(
             parent=control_frame,
@@ -127,17 +127,17 @@ class VideoStreamApp(tk.Tk):
             connect_callback=self.connect_server,
             disconnect_callback=self.disconnect_server,
         )
-        self.stream_control_panel.grid(row=4, column=0, sticky="ew", pady=2)
+        self.stream_control_panel.grid(row=0, column=3, sticky="ns", pady=2, padx=2)
 
     def create_video_panel(self) -> None:
         """Create right video preview panel"""
         self.video_panel = VideoPreviewPanel(self)
-        self.video_panel.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+        self.video_panel.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
     def create_status_bar(self) -> None:
         """Create bottom status bar"""
         self.status_bar = StatusBar(self)
-        self.status_bar.grid(row=1, column=0, columnspan=2, sticky="ew")
+        self.status_bar.grid(row=2, column=0, columnspan=2, sticky="ew")
 
     def update_status(self, message: str) -> None:
         """Update status bar message"""
