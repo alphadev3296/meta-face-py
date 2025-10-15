@@ -49,7 +49,7 @@ class WebRTCClient:
                     try:
                         frame = await track.recv()
                         # Convert to numpy array for display
-                        img = frame.to_ndarray(format="rgb24") # type: ignore  # noqa: PGH003
+                        img = frame.to_ndarray(format="rgb24")  # type: ignore  # noqa: PGH003
                         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
                         # Call external callback
@@ -122,11 +122,11 @@ class WebRTCClient:
 
 async def main() -> None:
     # Configuration
-    server_url= "http://localhost:8000"
-    device_id= 1
-    width= 640  # Video width in pixels
-    height= 480  # Video height in pixels
-    fps= 30  # Frames per second
+    server_url = "http://localhost:8000"
+    device_id = 1
+    width = 640  # Video width in pixels
+    height = 480  # Video height in pixels
+    fps = 30  # Frames per second
 
     webcam = Webcam(
         device=device_id,

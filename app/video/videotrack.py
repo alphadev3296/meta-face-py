@@ -29,7 +29,7 @@ class WebcamVideoTrack(VideoStreamTrack):
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # Create VideoFrame
-        video_frame = VideoFrame.from_ndarray(frame, format="rgb24") # type: ignore  # noqa: PGH003
+        video_frame = VideoFrame.from_ndarray(frame, format="rgb24")  # type: ignore  # noqa: PGH003
         video_frame.pts = pts
         video_frame.time_base = time_base
 
