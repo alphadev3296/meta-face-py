@@ -1,10 +1,12 @@
+import asyncio
+
 from app.ui.main_window import VideoStreamApp
 
 
-def main() -> None:
+async def main() -> None:
     app = VideoStreamApp()
-    app.mainloop()
+    await app.run()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

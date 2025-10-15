@@ -20,18 +20,18 @@ class WebRTCClient:
         self,
         offer_url: str,
         jwt_token: str,
-        photo_data: str,
-        read_frame_func: Callable[[], tuple[bool, CvFrame]] | None = None,
-        on_remote_frame_callback: Callable[[CvFrame, int], None] | None = None,
+        b64_photo: str,
+        read_frame_func: Callable[[], tuple[bool, CvFrame]],
+        on_recv_frame_callback: Callable[[CvFrame, int], None] | None = None,
     ) -> None:
         self.pc = RTCPeerConnection()
-        self.processed_frames = asyncio.Queue(maxsize=10)
+        self.recv_frames: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=10)
 
         self.offer_url = offer_url
         self.jwt_token = jwt_token
-        self.photo_data = photo_data
+        self.b64_photo = b64_photo
         self.read_frame_func = read_frame_func
-        self.on_remote_frame_callback = on_remote_frame_callback
+        self.on_recv_frame_callback = on_recv_frame_callback
 
     async def connect(self) -> None:
         """Establish WebRTC connection with server"""
@@ -49,17 +49,17 @@ class WebRTCClient:
                     try:
                         frame = await track.recv()
                         # Convert to numpy array for display
-                        img = frame.to_ndarray(format="rgb24")
+                        img = frame.to_ndarray(format="rgb24") # type: ignore  # noqa: PGH003
                         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
                         # Call external callback
-                        if self.on_remote_frame_callback is not None:
-                            self.on_remote_frame_callback(img, frame.pts)
+                        if self.on_recv_frame_callback is not None:
+                            self.on_recv_frame_callback(img, frame.pts or 0)
 
                         # Put frame in queue (non-blocking)
-                        if self.processed_frames.full():
-                            self.processed_frames.get_nowait()
-                        self.processed_frames.put_nowait(img)
+                        if self.recv_frames.full():
+                            self.recv_frames.get_nowait()
+                        self.recv_frames.put_nowait(img)
                     except Exception as e:
                         logger.error(f"Error receiving frame: {e}")
                         break
@@ -77,7 +77,7 @@ class WebRTCClient:
                     "sdp": self.pc.localDescription.sdp,
                     "type": self.pc.localDescription.type,
                     "token": self.jwt_token,
-                    "photo": self.photo_data,
+                    "photo": self.b64_photo,
                 },
                 headers={"Content-Type": "application/json"},
             ) as response,
@@ -96,7 +96,7 @@ class WebRTCClient:
         while True:
             try:
                 # Get frame from queue with timeout
-                frame = await asyncio.wait_for(self.processed_frames.get(), timeout=1.0)
+                frame = await asyncio.wait_for(self.recv_frames.get(), timeout=1.0)
 
                 cv2.imshow("Processed Stream", frame)
 
@@ -122,25 +122,23 @@ class WebRTCClient:
 
 async def main() -> None:
     # Configuration
-    cfg = {
-        "server_url": "http://localhost:8000",
-        "device_id": 1,
-        "width": 640,  # Video width in pixels
-        "height": 480,  # Video height in pixels
-        "fps": 30,  # Frames per second
-    }
+    server_url= "http://localhost:8000"
+    device_id= 1
+    width= 640  # Video width in pixels
+    height= 480  # Video height in pixels
+    fps= 30  # Frames per second
 
     webcam = Webcam(
-        device=cfg["device_id"],
-        width=cfg["width"],
-        height=cfg["height"],
-        fps=cfg["fps"],
+        device=device_id,
+        width=width,
+        height=height,
+        fps=fps,
     )
     webcam.open()
 
     logger.info("Starting WebRTC client:")
-    logger.info(f"  Resolution: {cfg['width']}x{cfg['height']}")
-    logger.info(f"  FPS: {cfg['fps']}")
+    logger.info(f"  Resolution: {width}x{height}")
+    logger.info(f"  FPS: {fps}")
 
     try:
         # Read photo image
@@ -162,11 +160,11 @@ async def main() -> None:
             logger.debug(f"Received frame {pts}: {frame.shape}")
 
         client = WebRTCClient(
-            offer_url=f"{cfg['server_url']}/offer",
+            offer_url=f"{server_url}/offer",
             jwt_token=jwt_token,
-            photo_data=photo_data,
+            b64_photo=photo_data,
             read_frame_func=webcam.read,
-            on_remote_frame_callback=recv_frame,
+            on_recv_frame_callback=recv_frame,
         )
 
         await client.connect()
