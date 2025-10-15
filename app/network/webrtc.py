@@ -1,9 +1,14 @@
 import asyncio
+import base64
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import aiohttp
 import cv2
 from aiortc import RTCPeerConnection, RTCSessionDescription
+from jose import jwt
 
+from app.config.auth import config as cfg_auth
 from app.video.videotrack import WebcamVideoTrack
 
 
@@ -21,7 +26,7 @@ class WebRTCClient:
         """Establish WebRTC connection with server"""
 
         # Add webcam track
-        webcam_track = WebcamVideoTrack(width=self.width, height=self.height, fps=self.fps)
+        webcam_track = WebcamVideoTrack(device_id=1, width=self.width, height=self.height, fps=self.fps)
         sender = self.pc.addTrack(webcam_track)
 
         # Handle incoming video track (processed frames from server)
@@ -48,35 +53,55 @@ class WebRTCClient:
         offer = await self.pc.createOffer()
         await self.pc.setLocalDescription(offer)
 
-        # Apply encoding parameters
-        if sender:
-            try:
-                parameters = sender.getParameters()
+        # # Apply encoding parameters
+        # if sender:
+        #     try:
+        #         parameters = sender.getCapabilities()
 
-                if not parameters.encodings:
-                    parameters.encodings = [{}]
+        #         if not parameters.encodings:
+        #             parameters.encodings = [{}]
 
-                # Set bitrate and framerate
-                parameters.encodings[0].maxBitrate = self.bitrate
+        #         # Set bitrate and framerate
+        #         parameters.encodings[0].maxBitrate = self.bitrate
 
-                if hasattr(parameters.encodings[0], "maxFramerate"):
-                    parameters.encodings[0].maxFramerate = self.fps
+        #         if hasattr(parameters.encodings[0], "maxFramerate"):
+        #             parameters.encodings[0].maxFramerate = self.fps
 
-                await sender.setParameters(parameters)
+        #         await sender.setParameters(parameters)
 
-                print("Encoding parameters applied:")
-                print(f"  Bitrate: {self.bitrate / 1000000:.1f} Mbps")
-                print(f"  Framerate: {self.fps} fps")
+        #         print("Encoding parameters applied:")
+        #         print(f"  Bitrate: {self.bitrate / 1000000:.1f} Mbps")
+        #         print(f"  Framerate: {self.fps} fps")
 
-            except Exception as e:
-                print(f"Warning: Could not set encoding parameters: {e}")
+        #     except Exception as e:
+        #         print(f"Warning: Could not set encoding parameters: {e}")
+
+        jwt_token = jwt.encode(
+            {
+                "sub": "",
+                "exp": datetime.now(tz=UTC) + timedelta(minutes=cfg_auth.JWT_TOKEN_EXPIRE_MINS),
+                "tone_enhance": False,
+                "face_enhance": False,
+            },
+            "qC7kQqEnscXo4A3Zh1p6uK2zBdRno8cYPm5t7UHs",
+            algorithm=cfg_auth.JWT_ALGORITHM,
+        )
+
+        # Read photo image
+        with Path(r"C:\Users\alpha\Downloads\output.png").open("rb") as f:
+            photo_data = base64.b64encode(f.read()).decode("utf-8")
 
         # Send offer to server
         async with (
             aiohttp.ClientSession() as session,
             session.post(
                 f"{self.server_url}/offer",
-                json={"sdp": self.pc.localDescription.sdp, "type": self.pc.localDescription.type},
+                json={
+                    "sdp": self.pc.localDescription.sdp,
+                    "type": self.pc.localDescription.type,
+                    "token": jwt_token,
+                    "photo": photo_data,
+                },
                 headers={"Content-Type": "application/json"},
             ) as response,
         ):
@@ -121,7 +146,7 @@ class WebRTCClient:
 async def main():
     # Configuration
     CONFIG = {
-        "server_url": "http://localhost:8080",
+        "server_url": "http://localhost:8000",
         "width": 640,  # Video width in pixels
         "height": 480,  # Video height in pixels
         "fps": 30,  # Frames per second

@@ -6,19 +6,26 @@ from av import VideoFrame
 class WebcamVideoTrack(VideoStreamTrack):
     """Video track that captures from webcam"""
 
-    def __init__(self, width=640, height=480, fps=30):
+    def __init__(
+        self,
+        device_id: int,
+        width: int = 1280,
+        height: int = 720,
+        fps: int = 20,
+    ) -> None:
         super().__init__()
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(device_id, cv2.CAP_DSHOW)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self.cap.set(cv2.CAP_PROP_FPS, fps)
 
-    async def recv(self):
+    async def recv(self) -> VideoFrame:
         pts, time_base = await self.next_timestamp()
 
         ret, frame = self.cap.read()
         if not ret:
-            raise Exception("Failed to capture frame")
+            msg = "Failed to capture frame"
+            raise RuntimeError(msg)
 
         # Convert BGR to RGB
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -30,6 +37,6 @@ class WebcamVideoTrack(VideoStreamTrack):
 
         return video_frame
 
-    def stop(self):
+    def stop(self) -> None:
         if self.cap:
             self.cap.release()
