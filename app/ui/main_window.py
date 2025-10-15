@@ -219,7 +219,7 @@ class VideoStreamApp(tk.Tk):
                         logger.debug(f"Error sending frame to virtual camera: {ex}")
                 vcam.close()
             except:  # noqa: E722
-                asyncio.sleep(0.01)
+                await asyncio.sleep(0.01)
 
     def on_new_frame(self, frame: CvFrame) -> None:
         self.local_video_panel.show_frame(frame)
