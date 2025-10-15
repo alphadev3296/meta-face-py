@@ -1,5 +1,4 @@
 import asyncio
-import threading
 from collections.abc import Callable, Coroutine
 from tkinter import ttk
 from typing import Any
@@ -16,9 +15,15 @@ class StreamControlPanel(ttk.LabelFrame):
         disconnect_callback: Callable[[], Coroutine[Any, Any, None]],
     ) -> None:
         super().__init__(parent, text="Stream Controls", padding=5)
+
+        # Callbacks
         self.status_callback = status_callback
         self.connect_callback = connect_callback
         self.disconnect_callback = disconnect_callback
+
+        # Tasks
+        self.connect_task: asyncio.Task[None] | None = None
+        self.disconnect_task: asyncio.Task[None] | None = None
 
         # Connect button
         self.connect_btn = ttk.Button(self, text="Connect", command=self.on_connect, width=18)
@@ -36,10 +41,10 @@ class StreamControlPanel(ttk.LabelFrame):
         self.connect_btn.config(state="disabled")
         self.disconnect_btn.config(state="normal")
         self.status_callback("Connecting to server...")
-        threading.Thread(target=lambda: asyncio.run(self.connect_callback()), daemon=True).start()
+        self.connect_task = asyncio.create_task(self.connect_callback())
 
     def on_disconnect(self) -> None:
         self.disconnect_btn.config(state="disabled")
         self.connect_btn.config(state="normal")
         self.status_callback("Disconnecting from server...")
-        threading.Thread(target=lambda: asyncio.run(self.disconnect_callback()), daemon=True).start()
+        self.disconnect_task = asyncio.create_task(self.disconnect_callback())

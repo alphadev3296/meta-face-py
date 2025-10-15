@@ -1,14 +1,16 @@
-import threading
+import asyncio
+import base64
 import tkinter as tk
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tkinter import ttk
 
+import numpy as np
 from jose import jwt
 from loguru import logger
 
 from app.config.auth import config as cfg_auth
-from app.network.websocket import WebSocketVideoClient
+from app.network.webrtc import WebRTCClient
 from app.schema.app_data import AppData
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS
 from app.ui.camera_panel import CameraPanel
@@ -29,6 +31,9 @@ class VideoStreamApp(tk.Tk):
 
         self.app_data = AppData.load_app_data()
         self.webcam: Webcam | None = None
+        self.webrtc_client: WebRTCClient | None = None
+
+        self.is_running = True
 
         self.title("Video Streaming Control Panel")
         self.geometry("1200x760")
@@ -106,21 +111,34 @@ class VideoStreamApp(tk.Tk):
 
     def destroy(self) -> None:
         self.app_data.save_app_data()
-        self.stop_local_cam()
+        asyncio.create_task(self.stop_local_cam())  # noqa: RUF006
+        self.is_running = False
         super().destroy()
 
-    def stop_local_cam(self) -> None:
+    async def stop_local_cam(self) -> None:
         if self.webcam is not None:
             self.webcam.close()
             self.webcam = None
 
+        # Wait for webrtc client to close
+        if self.webrtc_client is not None:
+            await self.webrtc_client.close()
+
+        # Paint black frame
+        black_frame = np.zeros((360, 640, 3), np.uint8)
+        try:
+            self.on_new_frame(black_frame)
+            self.on_remote_frame(black_frame, 0)
+        except:  # noqa: E722, S110
+            pass
+
     async def connect_server(self) -> None:
-        threading.Thread(target=self.local_cam_thread, daemon=True).start()
+        await self.local_cam_thread()
 
     async def disconnect_server(self) -> None:
-        self.stop_local_cam()
+        await self.stop_local_cam()
 
-    def local_cam_thread(self) -> None:
+    async def local_cam_thread(self) -> None:
         # Start local camera
         if self.webcam is not None:
             self.webcam.close()
@@ -134,39 +152,34 @@ class VideoStreamApp(tk.Tk):
         )
         self.webcam.open()
 
-        # Start websocket client
-        ws_scheme = "wss" if self.app_data.server_address.startswith("https") else "ws"
-        server_host = self.app_data.server_address.split("://")[1].split("/")[0]
-        client = WebSocketVideoClient(
-            uri=f"{ws_scheme}://{server_host}/video",
-        )
-
-        # Start sending stream
+        # Create JWT token
         jwt_token = jwt.encode(
             {
                 "sub": "",
                 "exp": datetime.now(tz=UTC) + timedelta(minutes=cfg_auth.JWT_TOKEN_EXPIRE_MINS),
                 "face_swap": self.app_data.face_swap,
+                "tone_enhance": False,
                 "face_enhance": self.app_data.face_enhance,
             },
             self.app_data.secret,
             algorithm=cfg_auth.JWT_ALGORITHM,
         )
-        with Path(self.app_data.photo_path).open("rb") as f:
+
+        # Read photo image
+        with Path(self.app_data.photo_path).open("rb") as f:  # noqa: ASYNC230
             photo_data = f.read()
+            b64_photo = base64.b64encode(photo_data).decode("utf-8")
 
-        client.start(
-            frames=self.webcam.frame_generator(
-                frames_callback=self.on_new_frame,
-            ),
-            frame_callback=self.on_remote_frame,
+        # Create WebRTC client
+        self.webrtc_client = WebRTCClient(
+            offer_url=f"{self.app_data.server_address}/offer",
             jwt_token=jwt_token,
-            photo=photo_data,
+            b64_photo=b64_photo,
+            read_frame_func=self.webcam.read,
+            on_camera_frame_callback=self.on_new_frame,
+            on_recv_frame_callback=self.on_remote_frame,
         )
-
-        # Stop local camera
-        self.stream_control_panel.on_disconnect()
-        self.update_status("Disconnected from server")
+        await self.webrtc_client.connect()
 
     def on_new_frame(self, frame: CvFrame) -> None:
         self.local_video_panel.show_frame(frame)
@@ -174,3 +187,8 @@ class VideoStreamApp(tk.Tk):
     def on_remote_frame(self, frame: CvFrame, frame_number: int) -> None:
         self.video_panel.show_frame(frame)
         logger.debug(f"Received frame {frame_number}")
+
+    async def run(self) -> None:
+        while self.is_running:
+            self.update()
+            await asyncio.sleep(0.001)
