@@ -6,6 +6,7 @@ from pathlib import Path
 from tkinter import ttk
 
 import numpy as np
+import pyvirtualcam
 from jose import jwt
 from loguru import logger
 
@@ -32,6 +33,7 @@ class VideoStreamApp(tk.Tk):
         self.app_data = AppData.load_app_data()
         self.webcam: Webcam | None = None
         self.webrtc_client: WebRTCClient | None = None
+        self.vcam_frames: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=10)
 
         self.is_running = True
 
@@ -48,6 +50,9 @@ class VideoStreamApp(tk.Tk):
         self.create_status_bar()
         self.create_control_panel()
         self.create_video_panel()
+
+        # Start virtual camera loop
+        asyncio.create_task(self.update_virtual_camera_loop())  # noqa: RUF006
 
     def create_control_panel(self) -> None:
         """Create left control panel"""
@@ -181,12 +186,45 @@ class VideoStreamApp(tk.Tk):
         )
         await self.webrtc_client.connect()
 
+    async def update_virtual_camera_loop(self) -> None:
+        while self.is_running:
+            width, height = CAMERA_RESOLUTIONS[self.app_data.resolution]
+            fps = self.app_data.fps
+
+            try:
+                vcam = pyvirtualcam.Camera(width, height, fps)
+                while self.is_running:
+                    new_width, new_height = CAMERA_RESOLUTIONS[self.app_data.resolution]
+                    new_fps = self.app_data.fps
+
+                    if width != new_width or height != new_height or fps != new_fps:
+                        break
+
+                    try:
+                        frame = await self.vcam_frames.get()
+                    except:  # noqa: E722
+                        # If queue is empty, paint black frame
+                        frame = np.zeros((height, width, 3), np.uint8)
+
+                    try:
+                        vcam.send(frame)
+                    except Exception as ex:
+                        logger.error(f"Error sending frame to virtual camera: {ex}")
+                vcam.close()
+            except Exception as ex:
+                logger.error(f"Error creating virtual camera: {ex}")
+
     def on_new_frame(self, frame: CvFrame) -> None:
         self.local_video_panel.show_frame(frame)
 
-    def on_remote_frame(self, frame: CvFrame, frame_number: int) -> None:
+    def on_remote_frame(self, frame: CvFrame, _frame_number: int) -> None:
+        # Show frame
         self.video_panel.show_frame(frame)
-        logger.debug(f"Received frame {frame_number}")
+
+        # Put frame in queue
+        if self.vcam_frames.full():
+            self.vcam_frames.get_nowait()
+        self.vcam_frames.put_nowait(frame)
 
     async def run(self) -> None:
         while self.is_running:
