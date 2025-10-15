@@ -29,6 +29,6 @@ class AppData(BaseModel):
     def save_app_data(self) -> None:
         try:
             with cfg_fs.CONF_FILE_PATH.open("w") as f:
-                f.write(self.model_dump_json(indent=2))
+                _ = f.write(self.model_dump_json(indent=2))
         except Exception:
             logger.error(f"Failed to save app data to: {cfg_fs.CONF_FILE_PATH}")
