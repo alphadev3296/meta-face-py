@@ -126,6 +126,42 @@ class VideoStreamApp(tk.Tk):
         """Update status bar message"""
         self.status_bar.set_status(message)
 
+    def reconnect_camera(self) -> None:
+        device = self.app_data.camera_id
+        width, height = CAMERA_RESOLUTIONS[self.app_data.resolution]
+        fps = self.app_data.fps
+
+        if self.webcam is not None:
+            self.webcam.close()
+
+        self.webcam = Webcam(
+            device=device,
+            width=width,
+            height=height,
+            fps=fps,
+            pre_process_callback=self.process_camera_frame,
+        )
+        self.webcam.open()
+
+    def process_camera_frame(self, frame: CvFrame) -> CvFrame:
+        # Copy frame
+        frame = frame.copy()
+
+        # Zoom frame by center point
+        zoom = self.app_data.zoom
+        if zoom != 1.0:
+            # Resize frame
+            old_height, old_width = frame.shape[:2]
+            frame = cv2.resize(frame, (int(old_width * zoom), int(old_height * zoom)))
+
+            # Crop by center point
+            height, width = frame.shape[:2]
+            x = int((width - old_width) / 2)
+            y = int((height - old_height) / 2)
+            frame = frame[y : y + old_height, x : x + old_width]
+
+        return frame
+
     async def connect_server(self) -> None:
         # Start local camera
         self.reconnect_camera()
@@ -220,42 +256,6 @@ class VideoStreamApp(tk.Tk):
                 vcam.close()
             except:  # noqa: E722
                 await asyncio.sleep(1.0 / self.app_data.fps)
-
-    def process_camera_frame(self, frame: CvFrame) -> CvFrame:
-        # Copy frame
-        frame = frame.copy()
-
-        # Zoom frame by center point
-        zoom = self.app_data.zoom
-        if zoom != 1.0:
-            # Resize frame
-            old_height, old_width = frame.shape[:2]
-            frame = cv2.resize(frame, (int(old_width * zoom), int(old_height * zoom)))
-
-            # Crop by center point
-            height, width = frame.shape[:2]
-            x = int((width - old_width) / 2)
-            y = int((height - old_height) / 2)
-            frame = frame[y : y + old_height, x : x + old_width]
-
-        return frame
-
-    def reconnect_camera(self) -> None:
-        device = self.app_data.camera_id
-        width, height = CAMERA_RESOLUTIONS[self.app_data.resolution]
-        fps = self.app_data.fps
-
-        if self.webcam is not None:
-            self.webcam.close()
-
-        self.webcam = Webcam(
-            device=device,
-            width=width,
-            height=height,
-            fps=fps,
-            pre_process_callback=self.process_camera_frame,
-        )
-        self.webcam.open()
 
     async def camera_loop(self) -> None:
         while self.is_running:
