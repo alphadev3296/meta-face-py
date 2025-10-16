@@ -41,7 +41,7 @@ class VideoStreamApp(tk.Tk):
         self.app_data = AppData.load_app_data()
         self.webcam: Webcam | None = None
         self.webrtc_client: WebRTCClient | None = None
-        self.vcam_frames: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=10)
+        self.vcam_frames: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=4)
 
         self.is_running = True
         self.status = AppStatus.IDLE
