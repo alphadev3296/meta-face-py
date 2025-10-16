@@ -141,6 +141,7 @@ class VideoStreamApp(tk.Tk):
             width=resolution[0],
             height=resolution[1],
             fps=self.app_data.fps,
+            pre_process_callback=self.process_camera_frame,
         )
         self.webcam.open()
 
@@ -237,3 +238,22 @@ class VideoStreamApp(tk.Tk):
                 vcam.close()
             except:  # noqa: E722
                 await asyncio.sleep(0.01)
+
+    def process_camera_frame(self, frame: CvFrame) -> CvFrame:
+        # Copy frame
+        frame = frame.copy()
+
+        # Zoom frame by center point
+        zoom = self.app_data.zoom
+        if zoom != 1.0:
+            # Resize frame
+            old_height, old_width = frame.shape[:2]
+            frame = cv2.resize(frame, (int(old_width * zoom), int(old_height * zoom)))
+
+            # Crop by center point
+            height, width = frame.shape[:2]
+            x = int((width - old_width) / 2)
+            y = int((height - old_height) / 2)
+            frame = frame[y : y + old_height, x : x + old_width]
+
+        return frame
