@@ -55,8 +55,9 @@ class VideoStreamApp(tk.Tk):
         # Start background tasks
         self.reconnect_camera()
 
-        asyncio.create_task(self.virtual_camera_loop())  # noqa: RUF006
-        asyncio.create_task(self.camera_loop())  # noqa: RUF006
+        self.virtual_camera_task = asyncio.create_task(self.virtual_camera_loop())
+        self.camera_task = asyncio.create_task(self.camera_loop())
+        self.update_ui_task = asyncio.create_task(self.update_ui_loop())
 
     async def run_async(self) -> None:
         """
@@ -120,11 +121,6 @@ class VideoStreamApp(tk.Tk):
         """Create bottom status bar"""
         self.status_bar = StatusBar(self)
         self.status_bar.grid(row=2, column=0, columnspan=2, sticky="ew")
-
-    def update_ui(self, streaming_status: StreamingStatus) -> None:
-        self.camera_panel.update_ui(streaming_status)
-        self.processing_panel.update_ui(streaming_status)
-        self.server_panel.update_ui(streaming_status)
 
     def update_status(self, message: str) -> None:
         """Update status bar message"""
@@ -271,3 +267,20 @@ class VideoStreamApp(tk.Tk):
             except Exception as ex:
                 logger.debug(f"Error reading frame from camera: {ex}")
             await asyncio.sleep(1.0 / self.app_data.fps)
+
+    async def update_ui_loop(self) -> None:
+        prev_state = StreamingStatus.IDLE
+        while self.is_running:
+            try:
+                status = self.streaming_status
+
+                if status != prev_state:
+                    self.camera_panel.update_ui(status)
+                    self.processing_panel.update_ui(status)
+                    self.server_panel.update_ui(status)
+
+                    prev_state = status
+            except Exception as ex:
+                logger.debug(f"Error updating UI: {ex}")
+
+            await asyncio.sleep(0.01)

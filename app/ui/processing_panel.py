@@ -55,15 +55,15 @@ class ProcessingPanel(ttk.LabelFrame):
         if Path(self.app_cfg.photo_path).is_file():
             self.update_preview(self.app_cfg.photo_path)
 
-    def update_ui(self, streaming_status: StreamingStatus) -> None:
-        if streaming_status in [
+    def update_ui(self, status: StreamingStatus) -> None:
+        if status in [
             StreamingStatus.IDLE,
             StreamingStatus.DISCONNECTED,
         ]:
             self.select_btn["state"] = "normal"
             self.faceswap_cb["state"] = "normal"
             self.faceenhance_cb["state"] = "normal"
-        elif streaming_status in [
+        elif status in [
             StreamingStatus.CONNECTING,
             StreamingStatus.CONNECTED,
             StreamingStatus.DISCONNECTING,

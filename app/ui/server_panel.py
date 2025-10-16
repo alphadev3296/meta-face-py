@@ -57,8 +57,8 @@ class ServerPanel(ttk.LabelFrame):
 
         self.columnconfigure(0, weight=1)
 
-    def update_ui(self, streaming_status: StreamingStatus) -> None:
-        if streaming_status in [
+    def update_ui(self, status: StreamingStatus) -> None:
+        if status in [
             StreamingStatus.IDLE,
             StreamingStatus.DISCONNECTED,
         ]:
@@ -66,7 +66,7 @@ class ServerPanel(ttk.LabelFrame):
             self.secret_entry["state"] = "normal"
             self.connect_btn["state"] = "normal"
             self.disconnect_btn["state"] = "disabled"
-        elif streaming_status in [
+        elif status in [
             StreamingStatus.CONNECTING,
             StreamingStatus.CONNECTED,
             StreamingStatus.DISCONNECTING,
