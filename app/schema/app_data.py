@@ -22,8 +22,8 @@ class AppConfig(BaseModel):
     server_address: str = "http://localhost:8000"
     secret: str = ""
     photo_path: str = ""
-    face_swap: bool = True
-    face_enhance: bool = True
+    swap_face: bool = True
+    enhance_face: bool = True
     show_camera: bool = False
     zoom: float = 1.0
 

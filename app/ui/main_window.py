@@ -175,9 +175,8 @@ class VideoStreamApp(tk.Tk):
                 {
                     "sub": "",
                     "exp": datetime.now(tz=UTC) + timedelta(minutes=cfg_auth.JWT_TOKEN_EXPIRE_MINS),
-                    "face_swap": self.app_data.face_swap,
-                    "tone_enhance": False,
-                    "face_enhance": self.app_data.face_enhance,
+                    "swap_face": self.app_data.swap_face,
+                    "enhance_face": self.app_data.enhance_face,
                 },
                 self.app_data.secret,
                 algorithm=cfg_auth.JWT_ALGORITHM,
