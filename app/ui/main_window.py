@@ -90,7 +90,7 @@ class VideoStreamApp(tk.Tk):
         # Add panels
         self.camera_panel = CameraPanel(
             parent=control_frame,
-            status_callback=self.update_status,
+            status_callback=self.update_status_bar,
             app_data=self.app_data,
             reconnect_camera_fn=self.reconnect_camera,
         )
@@ -98,7 +98,7 @@ class VideoStreamApp(tk.Tk):
 
         self.processing_panel = ProcessingPanel(
             parent=control_frame,
-            status_callback=self.update_status,
+            status_callback=self.update_status_bar,
             app_cfg=self.app_data,
         )
         self.processing_panel.grid(row=0, column=1, sticky="ns", pady=2, padx=2)
@@ -106,7 +106,7 @@ class VideoStreamApp(tk.Tk):
         self.server_panel = ServerPanel(
             parent=control_frame,
             app_cfg=self.app_data,
-            status_callback=self.update_status,
+            status_callback=self.update_status_bar,
             connect_callback=self.connect_server,
             disconnect_callback=self.disconnect_server,
         )
@@ -122,7 +122,7 @@ class VideoStreamApp(tk.Tk):
         self.status_bar = StatusBar(self)
         self.status_bar.grid(row=2, column=0, columnspan=2, sticky="ew")
 
-    def update_status(self, message: str) -> None:
+    def update_status_bar(self, message: str) -> None:
         """Update status bar message"""
         self.status_bar.set_status(message)
 
@@ -163,43 +163,59 @@ class VideoStreamApp(tk.Tk):
         return frame
 
     async def connect_server(self) -> None:
-        # Start local camera
-        self.reconnect_camera()
+        try:
+            self.streaming_status = StreamingStatus.CONNECTING
+            self.update_status_bar("Connecting...")
 
-        # Create JWT token
-        jwt_token = jwt.encode(
-            {
-                "sub": "",
-                "exp": datetime.now(tz=UTC) + timedelta(minutes=cfg_auth.JWT_TOKEN_EXPIRE_MINS),
-                "face_swap": self.app_data.face_swap,
-                "tone_enhance": False,
-                "face_enhance": self.app_data.face_enhance,
-            },
-            self.app_data.secret,
-            algorithm=cfg_auth.JWT_ALGORITHM,
-        )
+            # Start local camera
+            self.reconnect_camera()
 
-        # Read photo image
-        with Path(self.app_data.photo_path).open("rb") as f:  # noqa: ASYNC230
-            photo_data = f.read()
-            b64_photo = base64.b64encode(photo_data).decode("utf-8")
+            # Create JWT token
+            jwt_token = jwt.encode(
+                {
+                    "sub": "",
+                    "exp": datetime.now(tz=UTC) + timedelta(minutes=cfg_auth.JWT_TOKEN_EXPIRE_MINS),
+                    "face_swap": self.app_data.face_swap,
+                    "tone_enhance": False,
+                    "face_enhance": self.app_data.face_enhance,
+                },
+                self.app_data.secret,
+                algorithm=cfg_auth.JWT_ALGORITHM,
+            )
 
-        # Create WebRTC client
-        if self.webcam is None:
-            msg = "Webcam is not initialized"
-            raise RuntimeError(msg)
+            # Read photo image
+            with Path(self.app_data.photo_path).open("rb") as f:  # noqa: ASYNC230
+                photo_data = f.read()
+                b64_photo = base64.b64encode(photo_data).decode("utf-8")
 
-        self.webrtc_client = WebRTCClient(
-            offer_url=f"{self.app_data.server_address}/offer",
-            jwt_token=jwt_token,
-            b64_photo=b64_photo,
-            read_frame_func=self.webcam.read,
-            on_recv_frame_callback=self.on_receive_frame,
-            on_disconnect_callback=self.disconnect_server,
-        )
-        await self.webrtc_client.connect()
+            # Create WebRTC client
+            if self.webcam is None:
+                msg = "Webcam is not initialized"
+                raise RuntimeError(msg)  # noqa: TRY301
+
+            self.webrtc_client = WebRTCClient(
+                offer_url=f"{self.app_data.server_address}/offer",
+                jwt_token=jwt_token,
+                b64_photo=b64_photo,
+                read_frame_func=self.webcam.read,
+                on_recv_frame_callback=self.on_receive_frame,
+                on_disconnect_callback=self.disconnect_server,
+            )
+            await self.webrtc_client.connect()
+
+            self.streaming_status = StreamingStatus.CONNECTED
+            self.update_status_bar("Connected")
+
+            await asyncio.sleep(1.0)
+            self.update_status_bar("Streaming...")
+        except Exception as ex:
+            logger.error(f"Failed to connect to server: {ex}")
+            await self.disconnect_server()
 
     async def disconnect_server(self) -> None:
+        self.streaming_status = StreamingStatus.DISCONNECTING
+        self.update_status_bar("Disconnecting...")
+
         # Wait for webrtc client to close
         if self.webrtc_client is not None:
             await self.webrtc_client.close()
@@ -211,6 +227,13 @@ class VideoStreamApp(tk.Tk):
             self.video_panel.show_processed_frame(black_frame)
         except:  # noqa: E722, S110
             pass
+
+        self.streaming_status = StreamingStatus.DISCONNECTED
+        self.update_status_bar("Disconnected")
+        await asyncio.sleep(1.0)
+
+        self.streaming_status = StreamingStatus.IDLE
+        self.update_status_bar("Ready")
 
     def on_receive_frame(self, frame: CvFrame, _frame_number: int) -> None:
         # Show frame

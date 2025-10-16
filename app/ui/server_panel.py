@@ -92,13 +92,7 @@ class ServerPanel(ttk.LabelFrame):
             self.app_cfg.save()
 
     def handle_connect(self) -> None:
-        self.connect_btn.config(state="disabled")
-        self.disconnect_btn.config(state="normal")
-        self.status_callback("Connecting to server...")
         self.connect_task = asyncio.create_task(self.connect_callback())
 
     def hadle_disconnect(self) -> None:
-        self.disconnect_btn.config(state="disabled")
-        self.connect_btn.config(state="normal")
-        self.status_callback("Disconnecting from server...")
         self.disconnect_task = asyncio.create_task(self.disconnect_callback())
