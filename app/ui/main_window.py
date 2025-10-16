@@ -232,6 +232,8 @@ class VideoStreamApp(tk.Tk):
                     try:
                         if frame.shape != (height, width, 3):
                             frame = cv2.resize(frame, (width, height))
+
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                         vcam.send(frame)
                     except Exception as ex:
                         logger.debug(f"Error sending frame to virtual camera: {ex}")
