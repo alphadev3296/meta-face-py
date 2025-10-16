@@ -74,7 +74,7 @@ class CameraPanel(ttk.LabelFrame):
 
         # Zoom slider
         ttk.Label(self, text="Zoom:").grid(row=3, column=0, sticky="w", pady=2)
-        self.zoom_var = tk.DoubleVar(value=getattr(self.app_cfg, "zoom", 1.0))
+        self.zoom_var = tk.DoubleVar(value=self.app_cfg.zoom)
         self.zoom_slider = ttk.Scale(
             self,
             from_=1.0,
@@ -85,7 +85,6 @@ class CameraPanel(ttk.LabelFrame):
         )
         self.zoom_slider.grid(row=3, column=1, sticky="ew", pady=2)
 
-        # Optional: Display the zoom value next to the slider
         self.zoom_value_label = ttk.Label(self, text=f"{self.zoom_var.get():.1f}x")
         self.zoom_value_label.grid(row=3, column=2, sticky="w")
 
@@ -132,23 +131,21 @@ class CameraPanel(ttk.LabelFrame):
         self.reconnect_camera_callback()
 
     def handle_resolution_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
-        self.status_callback(f"Resolution set to: {self.resolution_var.get()}")
+        self.status_callback(f"Resolution set to {self.resolution_var.get()}")
         self.app_cfg.resolution = list(CameraResolution)[self.resolution_combo.current()]
         self.app_cfg.save()
         self.reconnect_camera_callback()
 
     def handle_fps_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
-        self.status_callback(f"FPS set to: {self.fps_var.get()}")
+        self.status_callback(f"FPS set to {self.fps_var.get()}")
         self.app_cfg.fps = int(self.fps_var.get())
         self.app_cfg.save()
         self.reconnect_camera_callback()
 
     def handle_zoom_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         value = float(self.zoom_var.get())
-        self.status_callback(f"Zoom set to: {value:.1f}x")
+        self.status_callback(f"Zoom set to {value:.1f}x")
         self.zoom_value_label.config(text=f"{value:.1f}x")
 
-        # Store zoom in AppData (if property exists)
-        if hasattr(self.app_cfg, "zoom"):
-            self.app_cfg.zoom = value
-            self.app_cfg.save()
+        self.app_cfg.zoom = value
+        self.app_cfg.save()

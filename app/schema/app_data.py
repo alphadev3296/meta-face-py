@@ -27,6 +27,13 @@ class AppConfig(BaseModel):
     show_camera: bool = False
     zoom: float = 1.0
 
+    # Reinhard tonemap settings
+    tone_enabled: bool = False
+    gamma: float = 1.0
+    intensity: float = 0.0
+    light_adapt: float = 0.0
+    color_adapt: float = 0.0
+
     @classmethod
     def load(cls) -> "AppConfig":
         try:

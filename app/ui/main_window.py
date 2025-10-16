@@ -19,6 +19,7 @@ from app.ui.camera_panel import CameraPanel
 from app.ui.processing_panel import ProcessingPanel
 from app.ui.server_panel import ServerPanel
 from app.ui.status_bar import StatusBar
+from app.ui.tone_panel import TonePanel
 from app.ui.video_preview import VideoPanel
 from app.video.webcam import CvFrame, Webcam
 
@@ -72,8 +73,8 @@ class VideoStreamApp(tk.Tk):
         Callback method to be called when window is closed
         """
         self.app_data.save()
-        asyncio.create_task(self.disconnect_server())  # noqa: RUF006
         self.is_running = False
+
         super().destroy()
 
     def create_control_panel(self) -> None:
@@ -111,6 +112,13 @@ class VideoStreamApp(tk.Tk):
             disconnect_callback=self.disconnect_server,
         )
         self.server_panel.grid(row=0, column=2, sticky="ns", pady=2, padx=2)
+
+        self.tone_panel = TonePanel(
+            parent=control_frame,
+            status_callback=self.update_status_bar,
+            app_data=self.app_data,
+        )
+        self.tone_panel.grid(row=0, column=3, sticky="ns", pady=2, padx=2)
 
     def create_video_panel(self) -> None:
         """Create right video preview panel"""
@@ -232,10 +240,6 @@ class VideoStreamApp(tk.Tk):
 
         self.streaming_status = StreamingStatus.DISCONNECTED
         self.update_status_bar("Disconnected")
-        await asyncio.sleep(1.0)
-
-        self.streaming_status = StreamingStatus.IDLE
-        self.update_status_bar("Ready")
 
     def on_receive_frame(self, frame: CvFrame, _frame_number: int) -> None:
         # Show frame
@@ -294,17 +298,23 @@ class VideoStreamApp(tk.Tk):
             await asyncio.sleep(1.0 / self.app_data.fps)
 
     async def update_ui_loop(self) -> None:
-        prev_state = StreamingStatus.IDLE
+        prev_state = None
+        prev_tone_enabled = None
         while self.is_running:
             try:
                 status = self.streaming_status
+                tone_enabled = self.app_data.tone_enabled
 
                 if status != prev_state:
                     self.camera_panel.update_ui(status)
                     self.processing_panel.update_ui(status)
                     self.server_panel.update_ui(status)
-
                     prev_state = status
+
+                if tone_enabled != prev_tone_enabled:
+                    self.tone_panel.update_ui(tone_enabled)
+                    prev_tone_enabled = tone_enabled
+
             except Exception as ex:
                 logger.debug(f"Error updating UI: {ex}")
 
