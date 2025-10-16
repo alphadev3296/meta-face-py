@@ -15,11 +15,13 @@ class CameraPanel(ttk.LabelFrame):
         parent: ttk.Frame,
         status_callback: Callable[[str], None],
         app_data: AppConfig,
+        reconnect_camera_fn: Callable[[], None],
     ) -> None:
         super().__init__(parent, text="Camera", padding=5)
 
         self.app_cfg = app_data
         self.status_callback = status_callback
+        self.reconnect_camera_callback = reconnect_camera_fn
 
         # Camera selection
         webcam_list = Webcam.list_webcams()
@@ -85,16 +87,19 @@ class CameraPanel(ttk.LabelFrame):
         self.status_callback(f"Camera changed to: {self.camera_var.get()}")
         self.app_cfg.camera_id = self.camera_combo.current()
         self.app_cfg.save()
+        self.reconnect_camera_callback()
 
     def handle_resolution_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         self.status_callback(f"Resolution set to: {self.resolution_var.get()}")
         self.app_cfg.resolution = list(CameraResolution)[self.resolution_combo.current()]
         self.app_cfg.save()
+        self.reconnect_camera_callback()
 
     def handle_fps_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         self.status_callback(f"FPS set to: {self.fps_var.get()}")
         self.app_cfg.fps = int(self.fps_var.get())
         self.app_cfg.save()
+        self.reconnect_camera_callback()
 
     def handle_zoom_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         value = float(self.zoom_var.get())

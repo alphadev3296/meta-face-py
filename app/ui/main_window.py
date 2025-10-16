@@ -24,12 +24,12 @@ from app.ui.video_preview import VideoPanel
 from app.video.webcam import CvFrame, Webcam
 
 
-class AppStatus(StrEnum):
-    IDLE = "Idle"
-    CONNECTING = "Connecting"
-    CONNECTED = "Connected"
-    DISCONNECTING = "Disconnecting"
-    DISCONNECTED = "Disconnected"
+class StreamingStatus(StrEnum):
+    IDLE = "idle"
+    CONNECTING = "connecting"
+    CONNECTED = "connected"
+    DISCONNECTING = "disconnecting"
+    DISCONNECTED = "disconnected"
 
 
 class VideoStreamApp(tk.Tk):
@@ -44,7 +44,7 @@ class VideoStreamApp(tk.Tk):
         self.vcam_frames: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=4)
 
         self.is_running = True
-        self.status = AppStatus.IDLE
+        self.streaming_status = StreamingStatus.IDLE
 
         # Configure window
         self.title("Metaface Client")
@@ -61,8 +61,11 @@ class VideoStreamApp(tk.Tk):
         self.create_control_panel()
         self.create_video_panel()
 
-        # Start virtual camera loop
+        # Start background tasks
+        self.reconnect_camera()
+
         asyncio.create_task(self.virtual_camera_loop())  # noqa: RUF006
+        asyncio.create_task(self.camera_loop())  # noqa: RUF006
 
     async def run_async(self) -> None:
         """
@@ -97,6 +100,7 @@ class VideoStreamApp(tk.Tk):
             parent=control_frame,
             status_callback=self.update_status,
             app_data=self.app_data,
+            reconnect_camera_fn=self.reconnect_camera,
         )
         self.camera_panel.grid(row=0, column=0, sticky="ns", pady=2, padx=2)
 
@@ -132,18 +136,7 @@ class VideoStreamApp(tk.Tk):
 
     async def connect_server(self) -> None:
         # Start local camera
-        if self.webcam is not None:
-            self.webcam.close()
-
-        resolution = CAMERA_RESOLUTIONS[self.app_data.resolution]
-        self.webcam = Webcam(
-            device=self.app_data.camera_id,
-            width=resolution[0],
-            height=resolution[1],
-            fps=self.app_data.fps,
-            pre_process_callback=self.process_camera_frame,
-        )
-        self.webcam.open()
+        self.reconnect_camera()
 
         # Create JWT token
         jwt_token = jwt.encode(
@@ -164,23 +157,21 @@ class VideoStreamApp(tk.Tk):
             b64_photo = base64.b64encode(photo_data).decode("utf-8")
 
         # Create WebRTC client
+        if self.webcam is None:
+            msg = "Webcam is not initialized"
+            raise RuntimeError(msg)
+
         self.webrtc_client = WebRTCClient(
             offer_url=f"{self.app_data.server_address}/offer",
             jwt_token=jwt_token,
             b64_photo=b64_photo,
             read_frame_func=self.webcam.read,
-            on_camera_frame_callback=self.on_camera_frame,
             on_recv_frame_callback=self.on_receive_frame,
             on_disconnect_callback=self.disconnect_server,
         )
         await self.webrtc_client.connect()
 
     async def disconnect_server(self) -> None:
-        # Close local camera
-        if self.webcam is not None:
-            self.webcam.close()
-            self.webcam = None
-
         # Wait for webrtc client to close
         if self.webrtc_client is not None:
             await self.webrtc_client.close()
@@ -192,9 +183,6 @@ class VideoStreamApp(tk.Tk):
             self.video_panel.show_processed_frame(black_frame)
         except:  # noqa: E722, S110
             pass
-
-    def on_camera_frame(self, frame: CvFrame) -> None:
-        self.video_panel.show_camera_frame(frame)
 
     def on_receive_frame(self, frame: CvFrame, _frame_number: int) -> None:
         # Show frame
@@ -239,7 +227,7 @@ class VideoStreamApp(tk.Tk):
                         logger.debug(f"Error sending frame to virtual camera: {ex}")
                 vcam.close()
             except:  # noqa: E722
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(1.0 / self.app_data.fps)
 
     def process_camera_frame(self, frame: CvFrame) -> CvFrame:
         # Copy frame
@@ -259,3 +247,31 @@ class VideoStreamApp(tk.Tk):
             frame = frame[y : y + old_height, x : x + old_width]
 
         return frame
+
+    def reconnect_camera(self) -> None:
+        device = self.app_data.camera_id
+        width, height = CAMERA_RESOLUTIONS[self.app_data.resolution]
+        fps = self.app_data.fps
+
+        if self.webcam is not None:
+            self.webcam.close()
+
+        self.webcam = Webcam(
+            device=device,
+            width=width,
+            height=height,
+            fps=fps,
+            pre_process_callback=self.process_camera_frame,
+        )
+        self.webcam.open()
+
+    async def camera_loop(self) -> None:
+        while self.is_running:
+            try:
+                if self.webcam is not None:
+                    frame = self.webcam.read()
+                    if frame is not None:
+                        self.video_panel.show_camera_frame(frame)
+            except Exception as ex:
+                logger.debug(f"Error reading frame from camera: {ex}")
+            await asyncio.sleep(1.0 / self.app_data.fps)
