@@ -16,7 +16,7 @@ class StreamingStatus(StrEnum):
 
 
 class AppConfig(BaseModel):
-    camera_id: int = 0
+    camera_id: int = -1
     resolution: CameraResolution = CameraResolution.HD
     fps: int = 20
     server_address: str = "http://localhost:8000"

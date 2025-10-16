@@ -1,6 +1,6 @@
 import tkinter as tk
 from collections.abc import Callable
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 from app.schema.app_data import AppConfig, StreamingStatus
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS, CameraResolution
@@ -24,18 +24,24 @@ class CameraPanel(ttk.LabelFrame):
         self.reconnect_camera_callback = reconnect_camera_fn
 
         # Camera selection
-        webcam_list = Webcam.list_webcams()
+        self.refrech_camera_list_btn = ttk.Button(self, text="Refresh", command=self.handle_refresh_camera_list)
+        self.refrech_camera_list_btn.grid(row=0, column=2, pady=2, sticky="ew")
+
+        devices = Webcam.list_webcams()
         ttk.Label(self, text="Camera:").grid(row=0, column=0, sticky="w", pady=2)
         self.camera_var = tk.StringVar()
         self.camera_combo = ttk.Combobox(
             self,
             textvariable=self.camera_var,
-            values=[f"{dev[1]}" for dev in webcam_list],
+            values=[f"{dev[1]}" for dev in devices],
             state="readonly",
-            width=15,
         )
         self.camera_combo.grid(row=0, column=1, pady=2, sticky="ew")
-        self.camera_combo.current(min(len(webcam_list) - 1, self.app_cfg.camera_id))
+        if devices:
+            self.camera_combo.current(min(len(self.camera_combo["values"]) - 1, self.app_cfg.camera_id))
+        else:
+            messagebox.showerror("Error", "No cameras found")
+            self.app_cfg.camera_id = -1
         self.camera_combo.bind("<<ComboboxSelected>>", self.handle_camera_change)
 
         # Resolution selection
@@ -48,7 +54,6 @@ class CameraPanel(ttk.LabelFrame):
                 f"{cr.value} ({CAMERA_RESOLUTIONS[cr][0]}x{CAMERA_RESOLUTIONS[cr][1]})" for cr in list(CameraResolution)
             ],
             state="readonly",
-            width=15,
         )
         self.resolution_combo.grid(row=1, column=1, pady=2, sticky="ew")
         self.resolution_combo.current(list(CameraResolution).index(self.app_cfg.resolution))
@@ -58,7 +63,10 @@ class CameraPanel(ttk.LabelFrame):
         ttk.Label(self, text="FPS:").grid(row=2, column=0, sticky="w", pady=2)
         self.fps_var = tk.StringVar()
         self.fps_combo = ttk.Combobox(
-            self, textvariable=self.fps_var, values=["5", "10", "25"], state="readonly", width=15
+            self,
+            textvariable=self.fps_var,
+            values=["5", "10", "25"],
+            state="readonly",
         )
         self.fps_combo.grid(row=2, column=1, pady=2, sticky="ew")
         self.fps_combo.set(str(self.app_cfg.fps))
@@ -88,9 +96,9 @@ class CameraPanel(ttk.LabelFrame):
             StreamingStatus.IDLE,
             StreamingStatus.DISCONNECTED,
         ]:
-            self.camera_combo["state"] = "normal"
-            self.resolution_combo["state"] = "normal"
-            self.fps_combo["state"] = "normal"
+            self.camera_combo["state"] = "readonly"
+            self.resolution_combo["state"] = "readonly"
+            self.fps_combo["state"] = "readonly"
         elif status in [
             StreamingStatus.CONNECTING,
             StreamingStatus.CONNECTED,
@@ -103,6 +111,19 @@ class CameraPanel(ttk.LabelFrame):
             self.camera_combo["state"] = "disabled"
             self.resolution_combo["state"] = "disabled"
             self.fps_combo["state"] = "disabled"
+
+    def handle_refresh_camera_list(self) -> None:
+        devices = Webcam.list_webcams()
+        if not devices:
+            self.status_callback("No cameras found")
+            messagebox.showerror("Error", "No cameras found")
+            self.app_cfg.camera_id = -1
+            return
+
+        self.camera_combo["values"] = [f"{dev[1]}" for dev in devices]
+        self.camera_combo.current(min(len(self.camera_combo["values"]) - 1, self.app_cfg.camera_id))
+        self.camera_combo.event_generate("<<ComboboxSelected>>")
+        self.status_callback("Camera list refreshed")
 
     def handle_camera_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         self.status_callback(f"Camera changed to: {self.camera_var.get()}")

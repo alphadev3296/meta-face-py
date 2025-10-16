@@ -3,7 +3,7 @@ import base64
 import tkinter as tk
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 import cv2
 import numpy as np
@@ -128,20 +128,23 @@ class VideoStreamApp(tk.Tk):
 
     def reconnect_camera(self) -> None:
         device = self.app_data.camera_id
-        width, height = CAMERA_RESOLUTIONS[self.app_data.resolution]
-        fps = self.app_data.fps
+        if device >= 0:
+            width, height = CAMERA_RESOLUTIONS[self.app_data.resolution]
+            fps = self.app_data.fps
 
-        if self.webcam is not None:
-            self.webcam.close()
+            if self.webcam is not None:
+                self.webcam.close()
 
-        self.webcam = Webcam(
-            device=device,
-            width=width,
-            height=height,
-            fps=fps,
-            pre_process_callback=self.process_camera_frame,
-        )
-        self.webcam.open()
+            self.webcam = Webcam(
+                device=device,
+                width=width,
+                height=height,
+                fps=fps,
+                pre_process_callback=self.process_camera_frame,
+            )
+            self.webcam.open()
+        else:
+            messagebox.showerror("Error", "No camera device selected")
 
     def process_camera_frame(self, frame: CvFrame) -> CvFrame:
         # Copy frame
