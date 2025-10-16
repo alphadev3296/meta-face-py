@@ -4,17 +4,17 @@ from tkinter import ttk
 import cv2
 from PIL import Image, ImageTk
 
-from app.schema.app_data import AppData
+from app.schema.app_data import AppConfig
 from app.video.webcam import CvFrame
 
 
 class VideoPanel(ttk.Frame):
     """Main video preview panel"""
 
-    def __init__(self, parent: tk.Tk, app_data: AppData) -> None:
+    def __init__(self, parent: tk.Tk, app_cfg: AppConfig) -> None:
         super().__init__(parent)
 
-        self.app_data = app_data
+        self.app_cfg = app_cfg
 
         # Configure grid rows and columns
         self.columnconfigure(0, weight=1)
@@ -29,7 +29,7 @@ class VideoPanel(ttk.Frame):
         self.camera_frame.rowconfigure(1, weight=1)
         self.camera_frame.columnconfigure(0, weight=1)
 
-        self.show_camera_var = tk.BooleanVar(value=self.app_data.show_camera)
+        self.show_camera_var = tk.BooleanVar(value=self.app_cfg.show_camera)
         self.show_camera_cb = ttk.Checkbutton(
             self.camera_frame,
             text="Show Camera",
@@ -56,7 +56,8 @@ class VideoPanel(ttk.Frame):
         self.processed_stream_canvas.pack(fill="both", expand=True)
 
     def handle_show_camera_toggle(self) -> None:
-        self.app_data.show_camera = self.show_camera_var.get()
+        self.app_cfg.show_camera = self.show_camera_var.get()
+        self.app_cfg.save()
 
     def show_processed_frame(self, frame: CvFrame) -> None:
         # Convert BGR (OpenCV) -> RGB (Pillow)
@@ -93,7 +94,7 @@ class VideoPanel(ttk.Frame):
         self.processed_stream_canvas.image = imgtk  # type: ignore  # noqa: PGH003 # keep reference
 
     def show_camera_frame(self, frame: CvFrame) -> None:
-        if not self.app_data.show_camera:
+        if not self.app_cfg.show_camera:
             # Clear canvas
             self.camera_stream_canvas.delete("all")
             return

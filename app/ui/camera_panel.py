@@ -2,7 +2,7 @@ import tkinter as tk
 from collections.abc import Callable
 from tkinter import ttk
 
-from app.schema.app_data import AppData
+from app.schema.app_data import AppConfig
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS, CameraResolution
 from app.video.webcam import Webcam
 
@@ -14,11 +14,11 @@ class CameraPanel(ttk.LabelFrame):
         self,
         parent: ttk.Frame,
         status_callback: Callable[[str], None],
-        app_data: AppData,
+        app_data: AppConfig,
     ) -> None:
         super().__init__(parent, text="Camera", padding=5)
 
-        self.app_data = app_data
+        self.app_cfg = app_data
         self.status_callback = status_callback
 
         # Camera selection
@@ -33,7 +33,7 @@ class CameraPanel(ttk.LabelFrame):
             width=15,
         )
         self.camera_combo.grid(row=0, column=1, pady=2, sticky="ew")
-        self.camera_combo.current(min(len(webcam_list) - 1, self.app_data.camera_id))
+        self.camera_combo.current(min(len(webcam_list) - 1, self.app_cfg.camera_id))
         self.camera_combo.bind("<<ComboboxSelected>>", self.handle_camera_change)
 
         # Resolution selection
@@ -49,7 +49,7 @@ class CameraPanel(ttk.LabelFrame):
             width=15,
         )
         self.resolution_combo.grid(row=1, column=1, pady=2, sticky="ew")
-        self.resolution_combo.current(list(CameraResolution).index(self.app_data.resolution))
+        self.resolution_combo.current(list(CameraResolution).index(self.app_cfg.resolution))
         self.resolution_combo.bind("<<ComboboxSelected>>", self.handle_resolution_change)
 
         # FPS selection
@@ -59,12 +59,12 @@ class CameraPanel(ttk.LabelFrame):
             self, textvariable=self.fps_var, values=["5", "10", "25"], state="readonly", width=15
         )
         self.fps_combo.grid(row=2, column=1, pady=2, sticky="ew")
-        self.fps_combo.set(str(self.app_data.fps))
+        self.fps_combo.set(str(self.app_cfg.fps))
         self.fps_combo.bind("<<ComboboxSelected>>", self.handle_fps_change)
 
         # Zoom slider
         ttk.Label(self, text="Zoom:").grid(row=3, column=0, sticky="w", pady=2)
-        self.zoom_var = tk.DoubleVar(value=getattr(self.app_data, "zoom", 1.0))
+        self.zoom_var = tk.DoubleVar(value=getattr(self.app_cfg, "zoom", 1.0))
         self.zoom_slider = ttk.Scale(
             self,
             from_=1.0,
@@ -83,15 +83,18 @@ class CameraPanel(ttk.LabelFrame):
 
     def handle_camera_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         self.status_callback(f"Camera changed to: {self.camera_var.get()}")
-        self.app_data.camera_id = self.camera_combo.current()
+        self.app_cfg.camera_id = self.camera_combo.current()
+        self.app_cfg.save()
 
     def handle_resolution_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         self.status_callback(f"Resolution set to: {self.resolution_var.get()}")
-        self.app_data.resolution = list(CameraResolution)[self.resolution_combo.current()]
+        self.app_cfg.resolution = list(CameraResolution)[self.resolution_combo.current()]
+        self.app_cfg.save()
 
     def handle_fps_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         self.status_callback(f"FPS set to: {self.fps_var.get()}")
-        self.app_data.fps = int(self.fps_var.get())
+        self.app_cfg.fps = int(self.fps_var.get())
+        self.app_cfg.save()
 
     def handle_zoom_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         value = float(self.zoom_var.get())
@@ -99,5 +102,6 @@ class CameraPanel(ttk.LabelFrame):
         self.zoom_value_label.config(text=f"{value:.1f}x")
 
         # Store zoom in AppData (if property exists)
-        if hasattr(self.app_data, "zoom"):
-            self.app_data.zoom = value
+        if hasattr(self.app_cfg, "zoom"):
+            self.app_cfg.zoom = value
+            self.app_cfg.save()

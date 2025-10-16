@@ -4,7 +4,7 @@ from collections.abc import Callable, Coroutine
 from tkinter import ttk
 from typing import Any
 
-from app.schema.app_data import AppData
+from app.schema.app_data import AppConfig
 
 
 class ServerPanel(ttk.LabelFrame):
@@ -13,14 +13,14 @@ class ServerPanel(ttk.LabelFrame):
     def __init__(
         self,
         parent: ttk.Frame,
-        app_data: AppData,
+        app_cfg: AppConfig,
         status_callback: Callable[[str], None],
         connect_callback: Callable[[], Coroutine[Any, Any, None]],
         disconnect_callback: Callable[[], Coroutine[Any, Any, None]],
     ) -> None:
         super().__init__(parent, text="Server", padding=5)
 
-        self.app_data = app_data
+        self.app_cfg = app_cfg
 
         # Callbacks
         self.status_callback = status_callback
@@ -29,14 +29,14 @@ class ServerPanel(ttk.LabelFrame):
 
         # Server address
         ttk.Label(self, text="Address:").grid(row=0, column=0, sticky="w", pady=2)
-        self.address_var = tk.StringVar(value=self.app_data.server_address)
+        self.address_var = tk.StringVar(value=self.app_cfg.server_address)
         self.address_entry = ttk.Entry(self, textvariable=self.address_var, width=18)
         self.address_entry.grid(row=0, column=1, pady=2, sticky="ew")
         self.address_entry.bind("<FocusOut>", self.on_address_change)
 
         # Secret
         ttk.Label(self, text="Secret:").grid(row=1, column=0, sticky="w", pady=2)
-        self.secret_var = tk.StringVar(value=self.app_data.secret)
+        self.secret_var = tk.StringVar(value=self.app_cfg.secret)
         self.secret_entry = ttk.Entry(self, textvariable=self.secret_var, show="*", width=18)
         self.secret_entry.grid(row=1, column=1, pady=2, sticky="ew")
         self.secret_entry.bind("<FocusOut>", self.on_secret_change)
@@ -59,12 +59,13 @@ class ServerPanel(ttk.LabelFrame):
 
     def on_address_change(self, _event=None) -> None:  # type: ignore  # noqa: ANN001, PGH003
         self.status_callback(f"Server address updated: {self.address_var.get()}")
-        self.app_data.server_address = self.address_var.get()
+        self.app_cfg.server_address = self.address_var.get()
 
     def on_secret_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         if self.secret_var.get():
             self.status_callback("Secret updated")
-            self.app_data.secret = self.secret_var.get()
+            self.app_cfg.secret = self.secret_var.get()
+            self.app_cfg.save()
 
     def handle_connect(self) -> None:
         self.connect_btn.config(state="disabled")

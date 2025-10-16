@@ -14,7 +14,7 @@ from loguru import logger
 
 from app.config.auth import config as cfg_auth
 from app.network.webrtc import WebRTCClient
-from app.schema.app_data import AppData
+from app.schema.app_data import AppConfig
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS
 from app.ui.camera_panel import CameraPanel
 from app.ui.processing_panel import ProcessingPanel
@@ -38,7 +38,7 @@ class VideoStreamApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
 
-        self.app_data = AppData.load_app_data()
+        self.app_data = AppConfig.load()
         self.webcam: Webcam | None = None
         self.webrtc_client: WebRTCClient | None = None
         self.vcam_frames: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=4)
@@ -76,7 +76,7 @@ class VideoStreamApp(tk.Tk):
         """
         Callback method to be called when window is closed
         """
-        self.app_data.save_app_data()
+        self.app_data.save()
         asyncio.create_task(self.disconnect_server())  # noqa: RUF006
         self.is_running = False
         super().destroy()
@@ -103,13 +103,13 @@ class VideoStreamApp(tk.Tk):
         self.processing_panel = ProcessingPanel(
             parent=control_frame,
             status_callback=self.update_status,
-            app_data=self.app_data,
+            app_cfg=self.app_data,
         )
         self.processing_panel.grid(row=0, column=1, sticky="ns", pady=2, padx=2)
 
         self.server_panel = ServerPanel(
             parent=control_frame,
-            app_data=self.app_data,
+            app_cfg=self.app_data,
             status_callback=self.update_status,
             connect_callback=self.connect_server,
             disconnect_callback=self.disconnect_server,

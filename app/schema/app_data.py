@@ -5,7 +5,7 @@ from app.config.fs import config as cfg_fs
 from app.schema.camera_resolution import CameraResolution
 
 
-class AppData(BaseModel):
+class AppConfig(BaseModel):
     camera_id: int = 0
     resolution: CameraResolution = CameraResolution.HD
     fps: int = 20
@@ -18,7 +18,7 @@ class AppData(BaseModel):
     zoom: float = 1.0
 
     @classmethod
-    def load_app_data(cls) -> "AppData":
+    def load(cls) -> "AppConfig":
         try:
             with cfg_fs.CONF_FILE_PATH.open("r") as f:
                 return cls.model_validate_json(f.read())
@@ -27,7 +27,7 @@ class AppData(BaseModel):
 
         return cls()
 
-    def save_app_data(self) -> None:
+    def save(self) -> None:
         try:
             with cfg_fs.CONF_FILE_PATH.open("w") as f:
                 f.write(self.model_dump_json(indent=2))
