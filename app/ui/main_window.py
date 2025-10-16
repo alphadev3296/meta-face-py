@@ -171,6 +171,17 @@ class VideoStreamApp(tk.Tk):
             y = int((height - old_height) / 2)
             frame = frame[y : y + old_height, x : x + old_width]
 
+        if self.app_data.tone_enabled:
+            tonemap_reinhard = cv2.createTonemapReinhard(
+                gamma=self.app_data.gamma,
+                intensity=self.app_data.intensity,
+                light_adapt=self.app_data.light_adapt,
+                color_adapt=self.app_data.color_adapt,
+            )
+            frame_float = frame.astype(np.float32) / 255.0
+            result = tonemap_reinhard.process(frame_float)
+            frame = np.clip(result * 255, 0, 255).astype(np.uint8)
+
         return frame
 
     async def connect_server(self) -> None:

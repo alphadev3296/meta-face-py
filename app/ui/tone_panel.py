@@ -34,8 +34,8 @@ class TonePanel(ttk.LabelFrame):
         self.gamma_var = tk.DoubleVar(value=self.app_cfg.gamma)
         self.gamma_slider = ttk.Scale(
             self,
-            from_=1.0,
-            to=4.0,
+            from_=0.5,
+            to=3.0,
             orient="horizontal",
             variable=self.gamma_var,
             command=self.handle_gamma_change,
@@ -50,8 +50,8 @@ class TonePanel(ttk.LabelFrame):
         self.intensity_var = tk.DoubleVar(value=self.app_cfg.intensity)
         self.intensity_slider = ttk.Scale(
             self,
-            from_=1.0,
-            to=4.0,
+            from_=-1.0,
+            to=1.0,
             orient="horizontal",
             variable=self.intensity_var,
             command=self.handle_intensity_change,
@@ -66,8 +66,8 @@ class TonePanel(ttk.LabelFrame):
         self.light_adapt_var = tk.DoubleVar(value=self.app_cfg.light_adapt)
         self.light_adapt_slider = ttk.Scale(
             self,
-            from_=1.0,
-            to=4.0,
+            from_=0.0,
+            to=1.0,
             orient="horizontal",
             variable=self.light_adapt_var,
             command=self.handle_light_adapt_change,
@@ -82,8 +82,8 @@ class TonePanel(ttk.LabelFrame):
         self.color_adapt_var = tk.DoubleVar(value=self.app_cfg.color_adapt)
         self.color_adapt_slider = ttk.Scale(
             self,
-            from_=1.0,
-            to=4.0,
+            from_=0.0,
+            to=1.0,
             orient="horizontal",
             variable=self.color_adapt_var,
             command=self.handle_color_adapt_change,
