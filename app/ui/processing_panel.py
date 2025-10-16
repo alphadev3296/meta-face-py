@@ -5,7 +5,7 @@ from tkinter import filedialog, ttk
 
 from PIL import Image, ImageTk
 
-from app.schema.app_data import AppData
+from app.schema.app_data import AppConfig, StreamingStatus
 
 
 class ProcessingPanel(ttk.LabelFrame):
@@ -15,11 +15,11 @@ class ProcessingPanel(ttk.LabelFrame):
         self,
         parent: ttk.Frame,
         status_callback: Callable[[str], None],
-        app_data: AppData,
+        app_cfg: AppConfig,
     ) -> None:
         super().__init__(parent, text="Processing", padding=5)
 
-        self.app_data = app_data
+        self.app_cfg = app_cfg
         self.status_callback = status_callback
 
         # Photo selection
@@ -34,26 +34,47 @@ class ProcessingPanel(ttk.LabelFrame):
         self.preview_label = ttk.Label(self.preview_frame, text="No photo selected", anchor="center")
         self.preview_label.pack(fill="both", expand=True)
 
-        # FaceSwap checkbox
-        self.faceswap_var = tk.BooleanVar(value=self.app_data.face_swap)
-        self.faceswap_cb = ttk.Checkbutton(
-            self, text="FaceSwap", variable=self.faceswap_var, command=self.on_faceswap_toggle
+        # Swap face checkbox
+        self.swapface_var = tk.BooleanVar(value=self.app_cfg.swap_face)
+        self.swapface_cb = ttk.Checkbutton(
+            self, text="Swap Face", variable=self.swapface_var, command=self.handle_swapface_toggle
         )
-        self.faceswap_cb.grid(row=2, column=0, sticky="w", pady=2)
+        self.swapface_cb.grid(row=2, column=0, sticky="w", pady=2)
 
-        # FaceEnhance checkbox
-        self.faceenhance_var = tk.BooleanVar(value=self.app_data.face_enhance)
-        self.faceenhance_cb = ttk.Checkbutton(
-            self, text="FaceEnhance", variable=self.faceenhance_var, command=self.on_faceenhance_toggle
+        # Enhance face checkbox
+        self.enhanceface_var = tk.BooleanVar(value=self.app_cfg.enhance_face)
+        self.enhanceface_cb = ttk.Checkbutton(
+            self, text="Enhance Face", variable=self.enhanceface_var, command=self.handle_enhanceface_toggle
         )
-        self.faceenhance_cb.grid(row=2, column=1, sticky="w", pady=2)
+        self.enhanceface_cb.grid(row=2, column=1, sticky="w", pady=2)
 
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
 
         # Preview update
-        if Path(self.app_data.photo_path).is_file():
-            self.update_preview(self.app_data.photo_path)
+        if Path(self.app_cfg.photo_path).is_file():
+            self.update_preview(self.app_cfg.photo_path)
+
+    def update_ui(self, status: StreamingStatus) -> None:
+        if status in [
+            StreamingStatus.IDLE,
+            StreamingStatus.DISCONNECTED,
+        ]:
+            self.select_btn["state"] = "normal"
+            self.swapface_cb["state"] = "normal"
+            self.enhanceface_cb["state"] = "normal"
+        elif status in [
+            StreamingStatus.CONNECTING,
+            StreamingStatus.CONNECTED,
+            StreamingStatus.DISCONNECTING,
+        ]:
+            self.select_btn["state"] = "disabled"
+            self.swapface_cb["state"] = "disabled"
+            self.enhanceface_cb["state"] = "disabled"
+        else:
+            self.select_btn["state"] = "disabled"
+            self.swapface_cb["state"] = "disabled"
+            self.enhanceface_cb["state"] = "disabled"
 
     def select_photo(self) -> None:
         filename = filedialog.askopenfilename(
@@ -64,7 +85,9 @@ class ProcessingPanel(ttk.LabelFrame):
             ],
         )
         if filename:
-            self.app_data.photo_path = filename
+            self.app_cfg.photo_path = filename
+            self.app_cfg.save()
+
             self.update_preview(filename)
             self.status_callback(f"Photo selected: {filename.split('/')[-1]}")
 
@@ -84,12 +107,14 @@ class ProcessingPanel(ttk.LabelFrame):
             self.preview_label.config(text=f"Error: {str(e)[:30]}")
             self.status_callback(f"Error loading preview: {e}")
 
-    def on_faceswap_toggle(self) -> None:
-        status = "enabled" if self.faceswap_var.get() else "disabled"
-        self.status_callback(f"FaceSwap {status}")
-        self.app_data.face_swap = self.faceswap_var.get()
+    def handle_swapface_toggle(self) -> None:
+        status = "enabled" if self.swapface_var.get() else "disabled"
+        self.status_callback(f"Toggle swap face: {status}")
+        self.app_cfg.swap_face = self.swapface_var.get()
+        self.app_cfg.save()
 
-    def on_faceenhance_toggle(self) -> None:
-        status = "enabled" if self.faceenhance_var.get() else "disabled"
-        self.status_callback(f"FaceEnhance {status}")
-        self.app_data.face_enhance = self.faceenhance_var.get()
+    def handle_enhanceface_toggle(self) -> None:
+        status = "enabled" if self.enhanceface_var.get() else "disabled"
+        self.status_callback(f"Toggle enhance face: {status}")
+        self.app_cfg.enhance_face = self.enhanceface_var.get()
+        self.app_cfg.save()

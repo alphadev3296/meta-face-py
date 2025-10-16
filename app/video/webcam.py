@@ -1,5 +1,5 @@
-import time
-from collections.abc import Callable, Generator
+import asyncio
+from collections.abc import Callable
 from typing import Any
 
 import cv2
@@ -16,13 +16,19 @@ class Webcam:
         width: int,
         height: int,
         fps: int,
+        pre_process_callback: Callable[[CvFrame], CvFrame] | None = None,
     ) -> None:
         self.device = device
         self.width = width
         self.height = height
         self.fps = fps
 
+        self.pre_process_callback = pre_process_callback
+
         self.cap: cv2.VideoCapture | None = None
+        self.last_frame: CvFrame = np.zeros((self.height, self.width, 3), np.uint8)
+
+        self.read_task: asyncio.Task[None] | None = None
 
     def __del__(self) -> None:
         self.close()
@@ -53,34 +59,37 @@ class Webcam:
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         self.cap.set(cv2.CAP_PROP_FPS, self.fps)
 
+        self.read_task = asyncio.create_task(self.read_loop())
+
     def close(self) -> None:
         if self.cap is not None:
             self.cap.release()
             self.cap = None
 
-    def read(self) -> tuple[bool, CvFrame]:
+        if self.read_task is not None:
+            self.read_task.cancel()
+            self.read_task = None
+
+    def _read(self) -> tuple[bool, CvFrame]:
         if self.cap is None:
             return False, CvFrame(0)
-        return self.cap.read()
 
-    def frame_generator(
-        self,
-        frames_callback: Callable[[CvFrame], None] | None = None,
-    ) -> Generator[CvFrame, None, None]:
-        try:
-            while True:
-                if self.cap is None:
-                    break
-                ret, frame = self.cap.read()
-                if not ret:
-                    break
+        ok, frame = self.cap.read()
+        if not ok:
+            return False, CvFrame(0)
 
-                if frames_callback is not None:
-                    frames_callback(frame)
+        if self.pre_process_callback is not None:
+            frame = self.pre_process_callback(frame)
 
-                yield frame
+        return True, frame
 
-                # sleep for 1/fps seconds
-                time.sleep(1 / self.fps)
-        finally:
-            self.close()
+    async def read_loop(self) -> None:
+        while True:
+            ok, frame = self._read()
+            if ok:
+                self.last_frame = frame
+
+            await asyncio.sleep(1.0 / self.fps)
+
+    def read(self) -> CvFrame:
+        return self.last_frame.copy()

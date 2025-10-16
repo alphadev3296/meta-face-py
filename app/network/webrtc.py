@@ -1,13 +1,21 @@
 import asyncio
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 import aiohttp
 import cv2
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
+from aiortc.codecs import h264, vpx
 from loguru import logger
 
 from app.video.videotrack import WebcamVideoTrack
 from app.video.webcam import CvFrame
+
+# Set codec parameters for good quality
+h264.DEFAULT_BITRATE = 10 << 20  # 10 Mbps
+h264.MAX_FRAME_RATE = 30
+vpx.DEFAULT_BITRATE = 10 << 20  # 10 Mbps
+vpx.MAX_FRAME_RATE = 30
 
 
 class WebRTCClient:
@@ -16,9 +24,9 @@ class WebRTCClient:
         offer_url: str,
         jwt_token: str,
         b64_photo: str,
-        read_frame_func: Callable[[], tuple[bool, CvFrame]],
-        on_camera_frame_callback: Callable[[CvFrame], None] | None = None,
+        read_frame_func: Callable[[], CvFrame],
         on_recv_frame_callback: Callable[[CvFrame, int], None] | None = None,
+        on_disconnect_callback: Callable[[], Coroutine[Any, Any, None]] | None = None,
     ) -> None:
         self.pc = RTCPeerConnection()
         self.recv_frames: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=10)
@@ -28,17 +36,14 @@ class WebRTCClient:
         self.b64_photo = b64_photo
         self.read_frame_func = read_frame_func
 
-        self.on_camera_frame_callback = on_camera_frame_callback
         self.on_recv_frame_callback = on_recv_frame_callback
+        self.on_disconnect_callback = on_disconnect_callback
 
     async def connect(self) -> None:
         """Establish WebRTC connection with server"""
 
         # Add webcam track
-        webcam_track = WebcamVideoTrack(
-            read_frame_func=self.read_frame_func,
-            on_camera_frame_callback=self.on_camera_frame_callback,
-        )
+        webcam_track = WebcamVideoTrack(read_frame_func=self.read_frame_func)
         self.pc.addTrack(webcam_track)
 
         # Handle incoming video track (processed frames from server)
@@ -63,6 +68,8 @@ class WebRTCClient:
                         self.recv_frames.put_nowait(img)
                     except Exception as e:
                         logger.error(f"Error receiving frame: {e}")
+                        if self.on_disconnect_callback is not None:
+                            await self.on_disconnect_callback()
                         break
 
         # Create offer

@@ -1,3 +1,5 @@
+from enum import StrEnum
+
 from loguru import logger
 from pydantic import BaseModel
 
@@ -5,19 +7,35 @@ from app.config.fs import config as cfg_fs
 from app.schema.camera_resolution import CameraResolution
 
 
-class AppData(BaseModel):
-    camera_id: int = 0
+class StreamingStatus(StrEnum):
+    IDLE = "idle"
+    CONNECTING = "connecting"
+    CONNECTED = "connected"
+    DISCONNECTING = "disconnecting"
+    DISCONNECTED = "disconnected"
+
+
+class AppConfig(BaseModel):
+    camera_id: int = -1
     resolution: CameraResolution = CameraResolution.HD
     fps: int = 20
     server_address: str = "http://localhost:8000"
     secret: str = ""
     photo_path: str = ""
-    face_swap: bool = True
-    face_enhance: bool = True
-    show_local_video: bool = False
+    swap_face: bool = True
+    enhance_face: bool = True
+    show_camera: bool = False
+    zoom: float = 1.0
+
+    # Reinhard tonemap settings
+    tone_enabled: bool = False
+    gamma: float = 1.0
+    intensity: float = 0.0
+    light_adapt: float = 1.0
+    color_adapt: float = 0.0
 
     @classmethod
-    def load_app_data(cls) -> "AppData":
+    def load(cls) -> "AppConfig":
         try:
             with cfg_fs.CONF_FILE_PATH.open("r") as f:
                 return cls.model_validate_json(f.read())
@@ -26,7 +44,7 @@ class AppData(BaseModel):
 
         return cls()
 
-    def save_app_data(self) -> None:
+    def save(self) -> None:
         try:
             with cfg_fs.CONF_FILE_PATH.open("w") as f:
                 f.write(self.model_dump_json(indent=2))

@@ -40,8 +40,8 @@ async def test_webrtc() -> None:
             {
                 "sub": "",
                 "exp": datetime.now(tz=UTC) + timedelta(minutes=cfg_auth.JWT_TOKEN_EXPIRE_MINS),
-                "tone_enhance": False,
-                "face_enhance": False,
+                "swap_face": False,
+                "enhance_face": False,
             },
             "qC7kQqEnscXo4A3Zh1p6uK2zBdRno8cYPm5t7UHs",
             algorithm=cfg_auth.JWT_ALGORITHM,
