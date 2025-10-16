@@ -5,7 +5,7 @@ from tkinter import filedialog, ttk
 
 from PIL import Image, ImageTk
 
-from app.schema.app_data import AppConfig
+from app.schema.app_data import AppConfig, StreamingStatus
 
 
 class ProcessingPanel(ttk.LabelFrame):
@@ -54,6 +54,27 @@ class ProcessingPanel(ttk.LabelFrame):
         # Preview update
         if Path(self.app_cfg.photo_path).is_file():
             self.update_preview(self.app_cfg.photo_path)
+
+    def update_ui(self, streaming_status: StreamingStatus) -> None:
+        if streaming_status in [
+            StreamingStatus.IDLE,
+            StreamingStatus.DISCONNECTED,
+        ]:
+            self.select_btn["state"] = "normal"
+            self.faceswap_cb["state"] = "normal"
+            self.faceenhance_cb["state"] = "normal"
+        elif streaming_status in [
+            StreamingStatus.CONNECTING,
+            StreamingStatus.CONNECTED,
+            StreamingStatus.DISCONNECTING,
+        ]:
+            self.select_btn["state"] = "disabled"
+            self.faceswap_cb["state"] = "disabled"
+            self.faceenhance_cb["state"] = "disabled"
+        else:
+            self.select_btn["state"] = "disabled"
+            self.faceswap_cb["state"] = "disabled"
+            self.faceenhance_cb["state"] = "disabled"
 
     def select_photo(self) -> None:
         filename = filedialog.askopenfilename(

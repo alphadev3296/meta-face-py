@@ -2,7 +2,7 @@ import tkinter as tk
 from collections.abc import Callable
 from tkinter import ttk
 
-from app.schema.app_data import AppConfig
+from app.schema.app_data import AppConfig, StreamingStatus
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS, CameraResolution
 from app.video.webcam import Webcam
 
@@ -82,6 +82,27 @@ class CameraPanel(ttk.LabelFrame):
         self.zoom_value_label.grid(row=3, column=2, sticky="w")
 
         self.columnconfigure(1, weight=1)
+
+    def update_ui(self, streaming_status: StreamingStatus) -> None:
+        if streaming_status in [
+            StreamingStatus.IDLE,
+            StreamingStatus.DISCONNECTED,
+        ]:
+            self.camera_combo["state"] = "normal"
+            self.resolution_combo["state"] = "normal"
+            self.fps_combo["state"] = "normal"
+        elif streaming_status in [
+            StreamingStatus.CONNECTING,
+            StreamingStatus.CONNECTED,
+            StreamingStatus.DISCONNECTING,
+        ]:
+            self.camera_combo["state"] = "disabled"
+            self.resolution_combo["state"] = "disabled"
+            self.fps_combo["state"] = "disabled"
+        else:
+            self.camera_combo["state"] = "disabled"
+            self.resolution_combo["state"] = "disabled"
+            self.fps_combo["state"] = "disabled"
 
     def handle_camera_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         self.status_callback(f"Camera changed to: {self.camera_var.get()}")

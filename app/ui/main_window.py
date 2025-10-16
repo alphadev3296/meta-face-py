@@ -2,7 +2,6 @@ import asyncio
 import base64
 import tkinter as tk
 from datetime import UTC, datetime, timedelta
-from enum import StrEnum
 from pathlib import Path
 from tkinter import ttk
 
@@ -14,7 +13,7 @@ from loguru import logger
 
 from app.config.auth import config as cfg_auth
 from app.network.webrtc import WebRTCClient
-from app.schema.app_data import AppConfig
+from app.schema.app_data import AppConfig, StreamingStatus
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS
 from app.ui.camera_panel import CameraPanel
 from app.ui.processing_panel import ProcessingPanel
@@ -22,14 +21,6 @@ from app.ui.server_panel import ServerPanel
 from app.ui.status_bar import StatusBar
 from app.ui.video_preview import VideoPanel
 from app.video.webcam import CvFrame, Webcam
-
-
-class StreamingStatus(StrEnum):
-    IDLE = "idle"
-    CONNECTING = "connecting"
-    CONNECTED = "connected"
-    DISCONNECTING = "disconnecting"
-    DISCONNECTED = "disconnected"
 
 
 class VideoStreamApp(tk.Tk):
@@ -129,6 +120,11 @@ class VideoStreamApp(tk.Tk):
         """Create bottom status bar"""
         self.status_bar = StatusBar(self)
         self.status_bar.grid(row=2, column=0, columnspan=2, sticky="ew")
+
+    def update_ui(self, streaming_status: StreamingStatus) -> None:
+        self.camera_panel.update_ui(streaming_status)
+        self.processing_panel.update_ui(streaming_status)
+        self.server_panel.update_ui(streaming_status)
 
     def update_status(self, message: str) -> None:
         """Update status bar message"""

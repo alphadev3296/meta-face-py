@@ -1,8 +1,18 @@
+from enum import StrEnum
+
 from loguru import logger
 from pydantic import BaseModel
 
 from app.config.fs import config as cfg_fs
 from app.schema.camera_resolution import CameraResolution
+
+
+class StreamingStatus(StrEnum):
+    IDLE = "idle"
+    CONNECTING = "connecting"
+    CONNECTED = "connected"
+    DISCONNECTING = "disconnecting"
+    DISCONNECTED = "disconnected"
 
 
 class AppConfig(BaseModel):

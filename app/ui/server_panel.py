@@ -4,7 +4,7 @@ from collections.abc import Callable, Coroutine
 from tkinter import ttk
 from typing import Any
 
-from app.schema.app_data import AppConfig
+from app.schema.app_data import AppConfig, StreamingStatus
 
 
 class ServerPanel(ttk.LabelFrame):
@@ -32,14 +32,14 @@ class ServerPanel(ttk.LabelFrame):
         self.address_var = tk.StringVar(value=self.app_cfg.server_address)
         self.address_entry = ttk.Entry(self, textvariable=self.address_var, width=18)
         self.address_entry.grid(row=0, column=1, pady=2, sticky="ew")
-        self.address_entry.bind("<FocusOut>", self.on_address_change)
+        self.address_entry.bind("<FocusOut>", self.handle_address_change)
 
         # Secret
         ttk.Label(self, text="Secret:").grid(row=1, column=0, sticky="w", pady=2)
         self.secret_var = tk.StringVar(value=self.app_cfg.secret)
         self.secret_entry = ttk.Entry(self, textvariable=self.secret_var, show="*", width=18)
         self.secret_entry.grid(row=1, column=1, pady=2, sticky="ew")
-        self.secret_entry.bind("<FocusOut>", self.on_secret_change)
+        self.secret_entry.bind("<FocusOut>", self.handle_secret_change)
 
         # Tasks
         self.connect_task: asyncio.Task[None] | None = None
@@ -57,11 +57,35 @@ class ServerPanel(ttk.LabelFrame):
 
         self.columnconfigure(0, weight=1)
 
-    def on_address_change(self, _event=None) -> None:  # type: ignore  # noqa: ANN001, PGH003
+    def update_ui(self, streaming_status: StreamingStatus) -> None:
+        if streaming_status in [
+            StreamingStatus.IDLE,
+            StreamingStatus.DISCONNECTED,
+        ]:
+            self.address_entry["state"] = "normal"
+            self.secret_entry["state"] = "normal"
+            self.connect_btn["state"] = "normal"
+            self.disconnect_btn["state"] = "disabled"
+        elif streaming_status in [
+            StreamingStatus.CONNECTING,
+            StreamingStatus.CONNECTED,
+            StreamingStatus.DISCONNECTING,
+        ]:
+            self.address_entry["state"] = "disabled"
+            self.secret_entry["state"] = "disabled"
+            self.connect_btn["state"] = "disabled"
+            self.disconnect_btn["state"] = "normal"
+        else:
+            self.address_entry["state"] = "disabled"
+            self.secret_entry["state"] = "disabled"
+            self.connect_btn["state"] = "disabled"
+            self.disconnect_btn["state"] = "disabled"
+
+    def handle_address_change(self, _event=None) -> None:  # type: ignore  # noqa: ANN001, PGH003
         self.status_callback(f"Server address updated: {self.address_var.get()}")
         self.app_cfg.server_address = self.address_var.get()
 
-    def on_secret_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
+    def handle_secret_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
         if self.secret_var.get():
             self.status_callback("Secret updated")
             self.app_cfg.secret = self.secret_var.get()
