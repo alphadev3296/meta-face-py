@@ -70,10 +70,11 @@ class VideoStreamApp(tk.Tk):
         self.reconnect_audio_delay()
 
         self.virtual_camera_thread = threading.Thread(target=self.virtual_camera_loop, daemon=True)
-        self.start_camera_display()
+        self.camera_display_thread = threading.Thread(target=self.camera_display_loop, daemon=True)
         self.update_ui_thread = threading.Thread(target=self.update_ui_loop, daemon=True)
 
         self.virtual_camera_thread.start()
+        self.camera_display_thread.start()
         self.update_ui_thread.start()
 
     def destroy(self) -> None:
@@ -343,22 +344,18 @@ class VideoStreamApp(tk.Tk):
                         vcam.send(frame)
                     except Exception as ex:
                         logger.debug(f"Error sending frame to virtual camera: {ex}")
+                    time.sleep(1.0 / self.app_data.fps)
                 vcam.close()
-            except:  # noqa: E722
+            except Exception as ex:
                 time.sleep(1.0 / self.app_data.fps)
+                logger.debug(f"Error creating virtual camera: {ex}")
 
-    def start_camera_display(self) -> None:
-        self._update_camera_display()
+    def camera_display_loop(self) -> None:
+        while self.is_running:
+            self.video_panel.show_camera_frame(self.webcam.read())
+            time.sleep(1.0 / self.app_data.fps)
 
-    def _update_camera_display(self) -> None:
-        frame = self.webcam.read()
-        if frame is not None:
-            logger.debug(f"Local camera frame: {frame.shape}")
-            self.video_panel.show_camera_frame(frame)
-
-        self.after(10, self._update_camera_display)
-
-    async def update_ui_loop(self) -> None:
+    def update_ui_loop(self) -> None:
         prev_state = None
         prev_tone_enabled = None
         while self.is_running:
@@ -380,4 +377,4 @@ class VideoStreamApp(tk.Tk):
             except Exception as ex:
                 logger.debug(f"Error updating UI: {ex}")
 
-            await asyncio.sleep(0.01)
+            time.sleep(0.01)
