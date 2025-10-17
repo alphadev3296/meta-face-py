@@ -49,8 +49,8 @@ class VideoStreamApp(tk.Tk):
 
         # Configure window
         self.title("Metaface Client")
-        self.geometry("920x560")
-        self.minsize(920, 560)
+        self.geometry("920x660")
+        self.minsize(920, 660)
 
         # Configure grid
         self.columnconfigure(0, weight=1)

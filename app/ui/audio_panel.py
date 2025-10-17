@@ -121,7 +121,6 @@ class AudioPanel(ttk.LabelFrame):
             min(len(self.input_device_combo["values"]) - 1, max(self.app_cfg.input_device_idx, 0))
         )
         self.input_device_combo.event_generate("<<ComboboxSelected>>")
-        self.status_callback("Input devices list refreshed")
 
         output_devices = self.list_output_devices()
         if not output_devices:
@@ -135,7 +134,7 @@ class AudioPanel(ttk.LabelFrame):
             min(len(self.output_device_combo["values"]) - 1, max(self.app_cfg.output_device_idx, 0))
         )
         self.output_device_combo.event_generate("<<ComboboxSelected>>")
-        self.status_callback("Output devices list refreshed")
+        self.status_callback("Audio device list refreshed")
 
     def handle_input_device_selected(self, _event: tk.Event) -> None:
         self.status_callback(f"Input device selected: {self.input_device_var.get()}")
