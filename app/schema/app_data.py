@@ -34,6 +34,10 @@ class AppConfig(BaseModel):
     light_adapt: float = 1.0
     color_adapt: float = 0.0
 
+    # Audio settings
+    input_device_idx: int = -1
+    output_device_idx: int = -1
+
     @classmethod
     def load(cls) -> "AppConfig":
         try:

@@ -4,7 +4,7 @@ from fractions import Fraction
 import av
 from loguru import logger
 
-from app.video.webcam import CvFrame
+from app.media.webcam import CvFrame
 
 
 class H264VideoProcessor:

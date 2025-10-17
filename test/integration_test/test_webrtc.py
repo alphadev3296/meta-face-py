@@ -7,8 +7,8 @@ from jose import jwt
 from loguru import logger
 
 from app.config.auth import config as cfg_auth
+from app.media.webcam import CvFrame, Webcam
 from app.network.webrtc import WebRTCClient
-from app.video.webcam import CvFrame, Webcam
 
 
 async def test_webrtc() -> None:

@@ -2,9 +2,9 @@ import tkinter as tk
 from collections.abc import Callable
 from tkinter import messagebox, ttk
 
+from app.media.webcam import Webcam
 from app.schema.app_data import AppConfig, StreamingStatus
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS, CameraResolution
-from app.video.webcam import Webcam
 
 
 class CameraPanel(ttk.LabelFrame):
@@ -25,10 +25,10 @@ class CameraPanel(ttk.LabelFrame):
 
         # Camera selection
         self.refrech_camera_list_btn = ttk.Button(self, text="Refresh", command=self.handle_refresh_camera_list)
-        self.refrech_camera_list_btn.grid(row=0, column=2, pady=2, sticky="ew")
+        self.refrech_camera_list_btn.grid(row=0, column=0, columnspan=2, pady=2, sticky="w")
 
         devices = Webcam.list_webcams()
-        ttk.Label(self, text="Camera:").grid(row=0, column=0, sticky="w", pady=2)
+        ttk.Label(self, text="Camera:").grid(row=1, column=0, sticky="w", pady=2)
         self.camera_var = tk.StringVar()
         self.camera_combo = ttk.Combobox(
             self,
@@ -36,16 +36,16 @@ class CameraPanel(ttk.LabelFrame):
             values=[f"{dev[1]}" for dev in devices],
             state="readonly",
         )
-        self.camera_combo.grid(row=0, column=1, pady=2, sticky="ew")
+        self.camera_combo.grid(row=1, column=1, pady=2, sticky="ew")
         if devices:
-            self.camera_combo.current(min(len(self.camera_combo["values"]) - 1, self.app_cfg.camera_id))
+            self.camera_combo.current(min(len(self.camera_combo["values"]) - 1, max(self.app_cfg.camera_id, 0)))
         else:
             messagebox.showerror("Error", "No cameras found")
             self.app_cfg.camera_id = -1
         self.camera_combo.bind("<<ComboboxSelected>>", self.handle_camera_change)
 
         # Resolution selection
-        ttk.Label(self, text="Resolution:").grid(row=1, column=0, sticky="w", pady=2)
+        ttk.Label(self, text="Resolution:").grid(row=2, column=0, sticky="w", pady=2)
         self.resolution_var = tk.StringVar()
         self.resolution_combo = ttk.Combobox(
             self,
@@ -55,12 +55,12 @@ class CameraPanel(ttk.LabelFrame):
             ],
             state="readonly",
         )
-        self.resolution_combo.grid(row=1, column=1, pady=2, sticky="ew")
+        self.resolution_combo.grid(row=2, column=1, pady=2, sticky="ew")
         self.resolution_combo.current(list(CameraResolution).index(self.app_cfg.resolution))
         self.resolution_combo.bind("<<ComboboxSelected>>", self.handle_resolution_change)
 
         # FPS selection
-        ttk.Label(self, text="FPS:").grid(row=2, column=0, sticky="w", pady=2)
+        ttk.Label(self, text="FPS:").grid(row=3, column=0, sticky="w", pady=2)
         self.fps_var = tk.StringVar()
         self.fps_combo = ttk.Combobox(
             self,
@@ -68,12 +68,12 @@ class CameraPanel(ttk.LabelFrame):
             values=["5", "10", "25"],
             state="readonly",
         )
-        self.fps_combo.grid(row=2, column=1, pady=2, sticky="ew")
+        self.fps_combo.grid(row=3, column=1, pady=2, sticky="ew")
         self.fps_combo.set(str(self.app_cfg.fps))
         self.fps_combo.bind("<<ComboboxSelected>>", self.handle_fps_change)
 
         # Zoom slider
-        ttk.Label(self, text="Zoom:").grid(row=3, column=0, sticky="w", pady=2)
+        ttk.Label(self, text="Zoom:").grid(row=4, column=0, sticky="w", pady=2)
         self.zoom_var = tk.DoubleVar(value=self.app_cfg.zoom)
         self.zoom_slider = ttk.Scale(
             self,
@@ -83,10 +83,10 @@ class CameraPanel(ttk.LabelFrame):
             variable=self.zoom_var,
             command=self.handle_zoom_change,
         )
-        self.zoom_slider.grid(row=3, column=1, sticky="ew", pady=2)
+        self.zoom_slider.grid(row=4, column=1, sticky="ew", pady=2)
 
         self.zoom_value_label = ttk.Label(self, text=f"{self.zoom_var.get():.1f}x")
-        self.zoom_value_label.grid(row=3, column=2, sticky="w")
+        self.zoom_value_label.grid(row=4, column=2, sticky="w")
 
         self.columnconfigure(1, weight=1)
 

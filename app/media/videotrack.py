@@ -4,7 +4,7 @@ import cv2
 from aiortc import VideoStreamTrack
 from av import VideoFrame
 
-from app.video.webcam import CvFrame
+from app.media.webcam import CvFrame
 
 
 class WebcamVideoTrack(VideoStreamTrack):

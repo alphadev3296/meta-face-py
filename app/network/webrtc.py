@@ -8,8 +8,8 @@ from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.codecs import h264, vpx
 from loguru import logger
 
-from app.video.videotrack import WebcamVideoTrack
-from app.video.webcam import CvFrame
+from app.media.videotrack import WebcamVideoTrack
+from app.media.webcam import CvFrame
 
 # Set codec parameters for good quality
 h264.DEFAULT_BITRATE = 10 << 20  # 10 Mbps

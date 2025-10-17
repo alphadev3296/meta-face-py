@@ -15,17 +15,18 @@ from loguru import logger
 
 from app.config.auth import config as cfg_auth
 from app.config.webrtc import config as cfg_rtc
+from app.media.webcam import CvFrame, Webcam
 from app.network.webrtc import WebRTCClient
 from app.schema.app_data import AppConfig, StreamingStatus
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS
 from app.schema.webrtc import WebRTCStats
 from app.ui.camera_panel import CameraPanel
+from app.ui.microphone_panel import AudioPanel
 from app.ui.processing_panel import ProcessingPanel
 from app.ui.server_panel import ServerPanel
 from app.ui.status_bar import StatusBar
 from app.ui.tone_panel import TonePanel
 from app.ui.video_preview import VideoPanel
-from app.video.webcam import CvFrame, Webcam
 
 
 class VideoStreamApp(tk.Tk):
@@ -104,19 +105,26 @@ class VideoStreamApp(tk.Tk):
         )
         self.camera_panel.grid(row=0, column=0, sticky="ns", pady=2, padx=2)
 
+        self.audio_panel = AudioPanel(
+            parent=control_frame,
+            status_callback=self.update_status_bar,
+            app_data=self.app_data,
+        )
+        self.audio_panel.grid(row=0, column=1, sticky="ns", pady=2, padx=2)
+
         self.processing_panel = ProcessingPanel(
             parent=control_frame,
             status_callback=self.update_status_bar,
             app_cfg=self.app_data,
         )
-        self.processing_panel.grid(row=0, column=1, sticky="ns", pady=2, padx=2)
+        self.processing_panel.grid(row=0, column=2, sticky="ns", pady=2, padx=2)
 
         self.tone_panel = TonePanel(
             parent=control_frame,
             status_callback=self.update_status_bar,
             app_data=self.app_data,
         )
-        self.tone_panel.grid(row=0, column=2, sticky="ns", pady=2, padx=2)
+        self.tone_panel.grid(row=0, column=3, sticky="ns", pady=2, padx=2)
 
         self.server_panel = ServerPanel(
             parent=control_frame,

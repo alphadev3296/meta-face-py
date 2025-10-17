@@ -4,8 +4,8 @@ from tkinter import ttk
 import cv2
 from PIL import Image, ImageTk
 
+from app.media.webcam import CvFrame
 from app.schema.app_data import AppConfig
-from app.video.webcam import CvFrame
 
 
 class VideoPanel(ttk.Frame):
