@@ -69,7 +69,7 @@ class VideoStreamApp(tk.Tk):
         self.virtual_camera_task = asyncio.create_task(self.virtual_camera_loop())
         self.camera_task = asyncio.create_task(self.camera_loop())
         self.update_ui_task = asyncio.create_task(self.update_ui_loop())
-        self.rtt_task = asyncio.create_task(self.rtt_loop())
+        self.stats_task = asyncio.create_task(self.stats_loop())
 
     async def run_async(self) -> None:
         """
@@ -362,7 +362,7 @@ class VideoStreamApp(tk.Tk):
                 logger.debug(f"Error reading frame from camera: {ex}")
             await asyncio.sleep(1.0 / self.app_data.fps)
 
-    async def rtt_loop(self) -> None:
+    async def stats_loop(self) -> None:
         prev_rtt: float = 0
         while self.is_running:
             try:
