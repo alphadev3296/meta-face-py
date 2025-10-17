@@ -177,7 +177,6 @@ class VideoStreamApp(tk.Tk):
         input_device_id = self.audio_panel.get_input_device_id()
         output_device_id = self.audio_panel.get_output_device_id()
         if input_device_id is not None and output_device_id is not None:
-
             if self.audio_delay is not None:
                 self.audio_delay.close()
 
