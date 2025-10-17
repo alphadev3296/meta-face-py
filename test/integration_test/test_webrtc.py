@@ -47,7 +47,7 @@ async def test_webrtc() -> None:
             algorithm=cfg_auth.JWT_ALGORITHM,
         )
 
-        def recv_frame(frame: CvFrame, pts: int) -> None:
+        async def recv_frame(frame: CvFrame, pts: int) -> None:
             logger.debug(f"Received frame {pts}: {frame.shape}")
 
         client = WebRTCClient(
