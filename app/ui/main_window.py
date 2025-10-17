@@ -42,6 +42,7 @@ class VideoStreamApp(tk.Tk):
         self.webrtc_client: WebRTCClient | None = None
         self.vcam_frame_queue: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=cfg_rtc.VCAM_FRAME_QUEUE_SIZE)
         self.stats_queue: asyncio.Queue[WebRTCStats] = asyncio.Queue(maxsize=cfg_rtc.STATS_QUEUE_SIZE)
+        self.last_stats: WebRTCStats | None = None
 
         self.is_running = True
         self.streaming_status = StreamingStatus.IDLE
@@ -180,10 +181,14 @@ class VideoStreamApp(tk.Tk):
             if self.audio_delay is not None:
                 self.audio_delay.close()
 
+            delay = cfg_rtc.BASE_DELAY / 2
+            if self.streaming_status is StreamingStatus.CONNECTED and self.last_stats is not None:
+                delay = cfg_rtc.BASE_DELAY + self.last_stats.round_trip_time
+
             self.audio_delay = AudioDelay(
                 input_device_id=input_device_id,
                 output_device_id=output_device_id,
-                delay_secs=1.0,
+                delay_secs=delay,
             )
             self.audio_delay.open()
         else:
@@ -287,6 +292,9 @@ class VideoStreamApp(tk.Tk):
         self.streaming_status = StreamingStatus.DISCONNECTED
         self.update_status_bar("Disconnected")
 
+        self.reconnect_camera()
+        self.reconnect_audio_delay()
+
     async def on_receive_frame(self, frame: CvFrame, _frame_number: int) -> None:
         try:
             # Show frame
@@ -370,8 +378,13 @@ class VideoStreamApp(tk.Tk):
 
                 if abs(stats.round_trip_time - prev_rtt) > cfg_rtc.ROUNT_TRIP_TIME_THRESHOLD:
                     logger.debug(f"RTT: {stats.round_trip_time}")
-                    logger.debug(f"Delay: {stats.round_trip_time + cfg_rtc.DELAY_OFFSET}")
+                    logger.debug(f"Delay: {stats.round_trip_time + cfg_rtc.BASE_DELAY}")
+
+                    self.last_stats = stats
+                    self.reconnect_audio_delay()
+
                     prev_rtt = stats.round_trip_time
+
             except Exception as ex:
                 logger.debug(f"Error updating RTT panel: {ex}")
             await asyncio.sleep(0.01)
