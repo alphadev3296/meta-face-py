@@ -12,9 +12,9 @@ from app.media.videotrack import WebcamVideoTrack
 from app.media.webcam import CvFrame
 
 # Set codec parameters for good quality
-h264.DEFAULT_BITRATE = 10 << 20  # 10 Mbps
+h264.DEFAULT_BITRATE = 20 << 20  # 20 Mbps
 h264.MAX_FRAME_RATE = 30
-vpx.DEFAULT_BITRATE = 10 << 20  # 10 Mbps
+vpx.DEFAULT_BITRATE = 20 << 20  # 20 Mbps
 vpx.MAX_FRAME_RATE = 30
 
 
