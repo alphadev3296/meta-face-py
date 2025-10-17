@@ -95,6 +95,7 @@ class CameraPanel(ttk.LabelFrame):
             StreamingStatus.IDLE,
             StreamingStatus.DISCONNECTED,
         ]:
+            self.refrech_camera_list_btn["state"] = "normal"
             self.camera_combo["state"] = "readonly"
             self.resolution_combo["state"] = "readonly"
             self.fps_combo["state"] = "readonly"
@@ -103,10 +104,12 @@ class CameraPanel(ttk.LabelFrame):
             StreamingStatus.CONNECTED,
             StreamingStatus.DISCONNECTING,
         ]:
+            self.refrech_camera_list_btn["state"] = "disabled"
             self.camera_combo["state"] = "disabled"
             self.resolution_combo["state"] = "disabled"
             self.fps_combo["state"] = "disabled"
         else:
+            self.refrech_camera_list_btn["state"] = "disabled"
             self.camera_combo["state"] = "disabled"
             self.resolution_combo["state"] = "disabled"
             self.fps_combo["state"] = "disabled"
