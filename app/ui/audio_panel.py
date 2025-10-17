@@ -175,6 +175,8 @@ class AudioPanel(ttk.LabelFrame):
     def list_input_devices(self) -> list[str]:
         ret: list[str] = []
 
+        sd._terminate()  # noqa: SLF001
+        sd._initialize()  # noqa: SLF001
         devices = sd.query_devices()
         hostapis = sd.query_hostapis()
 
@@ -190,6 +192,8 @@ class AudioPanel(ttk.LabelFrame):
     def list_output_devices(self) -> list[str]:
         ret: list[str] = []
 
+        sd._terminate()  # noqa: SLF001
+        sd._initialize()  # noqa: SLF001
         devices = sd.query_devices()
         hostapis = sd.query_hostapis()
 
