@@ -111,6 +111,13 @@ class VideoStreamApp(tk.Tk):
         )
         self.processing_panel.grid(row=0, column=1, sticky="ns", pady=2, padx=2)
 
+        self.tone_panel = TonePanel(
+            parent=control_frame,
+            status_callback=self.update_status_bar,
+            app_data=self.app_data,
+        )
+        self.tone_panel.grid(row=0, column=2, sticky="ns", pady=2, padx=2)
+
         self.server_panel = ServerPanel(
             parent=control_frame,
             app_cfg=self.app_data,
@@ -118,14 +125,7 @@ class VideoStreamApp(tk.Tk):
             connect_callback=self.connect_server,
             disconnect_callback=self.disconnect_server,
         )
-        self.server_panel.grid(row=0, column=2, sticky="ns", pady=2, padx=2)
-
-        self.tone_panel = TonePanel(
-            parent=control_frame,
-            status_callback=self.update_status_bar,
-            app_data=self.app_data,
-        )
-        self.tone_panel.grid(row=0, column=3, sticky="ns", pady=2, padx=2)
+        self.server_panel.grid(row=1, column=0, columnspan=3, sticky="w", pady=2, padx=2)
 
     def create_video_panel(self) -> None:
         """Create right video preview panel"""

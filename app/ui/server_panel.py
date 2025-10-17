@@ -28,17 +28,17 @@ class ServerPanel(ttk.LabelFrame):
         self.disconnect_callback = disconnect_callback
 
         # Server address
-        ttk.Label(self, text="Address:").grid(row=0, column=0, sticky="w", pady=2)
+        ttk.Label(self, text="Address:", width=9, anchor="e").grid(row=0, column=0)
         self.address_var = tk.StringVar(value=self.app_cfg.server_address)
-        self.address_entry = ttk.Entry(self, textvariable=self.address_var, width=18)
-        self.address_entry.grid(row=0, column=1, pady=2, sticky="ew")
+        self.address_entry = ttk.Entry(self, textvariable=self.address_var, width=24)
+        self.address_entry.grid(row=0, column=1)
         self.address_entry.bind("<FocusOut>", self.handle_address_change)
 
         # Secret
-        ttk.Label(self, text="Secret:").grid(row=1, column=0, sticky="w", pady=2)
+        ttk.Label(self, text="Secret:", width=9, anchor="e").grid(row=0, column=2)
         self.secret_var = tk.StringVar(value=self.app_cfg.secret)
-        self.secret_entry = ttk.Entry(self, textvariable=self.secret_var, show="*", width=18)
-        self.secret_entry.grid(row=1, column=1, pady=2, sticky="ew")
+        self.secret_entry = ttk.Entry(self, textvariable=self.secret_var, show="*", width=24)
+        self.secret_entry.grid(row=0, column=3)
         self.secret_entry.bind("<FocusOut>", self.handle_secret_change)
 
         # Tasks
@@ -46,16 +46,23 @@ class ServerPanel(ttk.LabelFrame):
         self.disconnect_task: asyncio.Task[None] | None = None
 
         # Connect button
-        self.connect_btn = ttk.Button(self, text="Connect", command=self.handle_connect, width=18)
-        self.connect_btn.grid(row=2, column=0, columnspan=2, pady=2, sticky="ew")
+        self.connect_btn = ttk.Button(
+            self,
+            text="Connect",
+            command=self.handle_connect,
+            width=18,
+        )
+        self.connect_btn.grid(row=1, column=0, columnspan=2, sticky="ew", pady=2)
 
         # Disconnect button
         self.disconnect_btn = ttk.Button(
-            self, text="Disconnect", command=self.hadle_disconnect, state="disabled", width=18
+            self,
+            text="Disconnect",
+            command=self.hadle_disconnect,
+            state="disabled",
+            width=18,
         )
-        self.disconnect_btn.grid(row=3, column=0, columnspan=2, pady=2, sticky="ew")
-
-        self.columnconfigure(0, weight=1)
+        self.disconnect_btn.grid(row=1, column=2, columnspan=2, sticky="ew", pady=2)
 
     def update_ui(self, status: StreamingStatus) -> None:
         if status in [
