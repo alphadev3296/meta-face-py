@@ -21,10 +21,10 @@ class AudioDelay:
         self.channels = channels
 
         self.buffer_size = int(self.delay_secs * self.sample_rate * self.channels)
-
-        # Create circular buffer for delay
         self.delay_buffer = np.zeros(self.buffer_size)
         self.buffer_index = 0
+
+        self.delay_task: asyncio.Task[None] | None = None
 
     def audio_callback(self, indata, outdata, frames, time, status) -> None:  # type:ignore  # noqa: ANN001, ARG002, PGH003
         if status:
@@ -49,9 +49,13 @@ class AudioDelay:
         outdata[:] = delayed_audio.reshape(-1, self.channels)
 
     def open(self) -> None:
-        self.delay_task = asyncio.create_task(self.delay_loop())
+        self.delay_task = asyncio.create_task(self._delay_loop())
 
-    async def delay_loop(self) -> None:
+    def close(self) -> None:
+        if self.delay_task is not None:
+            self.delay_task.cancel()
+
+    async def _delay_loop(self) -> None:
         while True:
             try:
                 with sd.Stream(

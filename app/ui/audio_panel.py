@@ -3,8 +3,9 @@ from collections.abc import Callable
 from tkinter import messagebox, ttk
 
 import sounddevice as sd
+from loguru import logger
 
-from app.schema.app_data import AppConfig
+from app.schema.app_data import AppConfig, StreamingStatus
 
 
 class AudioPanel(ttk.LabelFrame):
@@ -15,11 +16,13 @@ class AudioPanel(ttk.LabelFrame):
         parent: ttk.Frame,
         app_data: AppConfig,
         status_callback: Callable[[str], None],
+        reconnect_audio_fn: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(parent, text="Audio", padding=5)
 
         self.app_cfg = app_data
         self.status_callback = status_callback
+        self.reconnect_audio_callback = reconnect_audio_fn
 
         # Audio selection
         self.refresh_audio_devices_list_btn = ttk.Button(
@@ -77,6 +80,27 @@ class AudioPanel(ttk.LabelFrame):
             self.app_cfg.output_device_idx = -1
         self.output_device_combo.bind("<<ComboboxSelected>>", self.handle_output_device_selected)
 
+    def update_ui(self, status: StreamingStatus) -> None:
+        if status in [
+            StreamingStatus.IDLE,
+            StreamingStatus.DISCONNECTED,
+        ]:
+            self.refresh_audio_devices_list_btn["state"] = "normal"
+            self.input_device_combo["state"] = "readonly"
+            self.output_device_combo["state"] = "readonly"
+        elif status in [
+            StreamingStatus.CONNECTING,
+            StreamingStatus.CONNECTED,
+            StreamingStatus.DISCONNECTING,
+        ]:
+            self.refresh_audio_devices_list_btn["state"] = "disabled"
+            self.input_device_combo["state"] = "disabled"
+            self.output_device_combo["state"] = "disabled"
+        else:
+            self.refresh_audio_devices_list_btn["state"] = "disabled"
+            self.input_device_combo["state"] = "disabled"
+            self.output_device_combo["state"] = "disabled"
+
     def handle_refresh_audio_devices_list(self) -> None:
         input_devices = self.list_input_devices()
         if not input_devices:
@@ -106,15 +130,22 @@ class AudioPanel(ttk.LabelFrame):
         self.output_device_combo.event_generate("<<ComboboxSelected>>")
         self.status_callback("Output devices list refreshed")
 
+
     def handle_input_device_selected(self, _event: tk.Event) -> None:
         self.status_callback(f"Input device selected: {self.input_device_var.get()}")
         self.app_cfg.input_device_idx = self.input_device_combo.current()
         self.app_cfg.save()
 
+        if self.reconnect_audio_callback:
+            self.reconnect_audio_callback()
+
     def handle_output_device_selected(self, _event: tk.Event) -> None:
         self.status_callback(f"Output device selected: {self.output_device_var.get()}")
         self.app_cfg.output_device_idx = self.output_device_combo.current()
         self.app_cfg.save()
+
+        if self.reconnect_audio_callback:
+            self.reconnect_audio_callback()
 
     def list_input_devices(self) -> list[str]:
         ret: list[str] = []
@@ -145,3 +176,17 @@ class AudioPanel(ttk.LabelFrame):
 
                 ret.append(f"{i}. {device['name']}")
         return ret
+
+    def get_input_device_id(self) -> int | None:
+        try:
+            return int(self.input_device_var.get().split(".")[0])
+        except Exception as ex:
+            logger.error(f"Failed to get input device id: {ex}")
+            return None
+
+    def get_output_device_id(self) -> int | None:
+        try:
+            return int(self.output_device_var.get().split(".")[0])
+        except Exception as ex:
+            logger.error(f"Failed to get output device id: {ex}")
+            return None

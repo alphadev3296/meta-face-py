@@ -15,13 +15,14 @@ from loguru import logger
 
 from app.config.auth import config as cfg_auth
 from app.config.webrtc import config as cfg_rtc
+from app.media.audio import AudioDelay
 from app.media.webcam import CvFrame, Webcam
 from app.network.webrtc import WebRTCClient
 from app.schema.app_data import AppConfig, StreamingStatus
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS
 from app.schema.webrtc import WebRTCStats
+from app.ui.audio_panel import AudioPanel
 from app.ui.camera_panel import CameraPanel
-from app.ui.microphone_panel import AudioPanel
 from app.ui.processing_panel import ProcessingPanel
 from app.ui.server_panel import ServerPanel
 from app.ui.status_bar import StatusBar
@@ -37,6 +38,7 @@ class VideoStreamApp(tk.Tk):
 
         self.app_data = AppConfig.load()
         self.webcam: Webcam | None = None
+        self.audio_delay: AudioDelay | None = None
         self.webrtc_client: WebRTCClient | None = None
         self.vcam_frame_queue: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=cfg_rtc.VCAM_FRAME_QUEUE_SIZE)
         self.stats_queue: asyncio.Queue[WebRTCStats] = asyncio.Queue(maxsize=cfg_rtc.STATS_QUEUE_SIZE)
@@ -62,6 +64,7 @@ class VideoStreamApp(tk.Tk):
 
         # Start background tasks
         self.reconnect_camera()
+        self.reconnect_audio_delay()
 
         self.virtual_camera_task = asyncio.create_task(self.virtual_camera_loop())
         self.camera_task = asyncio.create_task(self.camera_loop())
@@ -109,6 +112,7 @@ class VideoStreamApp(tk.Tk):
             parent=control_frame,
             status_callback=self.update_status_bar,
             app_data=self.app_data,
+            reconnect_audio_fn=self.reconnect_audio_delay,
         )
         self.audio_panel.grid(row=0, column=1, sticky="ns", pady=2, padx=2)
 
@@ -168,6 +172,23 @@ class VideoStreamApp(tk.Tk):
             self.webcam.open()
         else:
             messagebox.showerror("Error", "No camera device selected")
+
+    def reconnect_audio_delay(self) -> None:
+        input_device_id = self.audio_panel.get_input_device_id()
+        output_device_id = self.audio_panel.get_output_device_id()
+        if input_device_id is not None and output_device_id is not None:
+
+            if self.audio_delay is not None:
+                self.audio_delay.close()
+
+            self.audio_delay = AudioDelay(
+                input_device_id=input_device_id,
+                output_device_id=output_device_id,
+                delay_secs=1.0,
+            )
+            self.audio_delay.open()
+        else:
+            messagebox.showerror("Error", "No audio device selected")
 
     def process_camera_frame(self, frame: CvFrame) -> CvFrame:
         # Copy frame
@@ -366,6 +387,7 @@ class VideoStreamApp(tk.Tk):
 
                 if status != prev_state:
                     self.camera_panel.update_ui(status)
+                    self.audio_panel.update_ui(status)
                     self.processing_panel.update_ui(status)
                     self.server_panel.update_ui(status)
                     prev_state = status
