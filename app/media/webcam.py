@@ -1,4 +1,5 @@
-import asyncio
+import threading
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -27,8 +28,10 @@ class Webcam:
 
         self.cap: cv2.VideoCapture | None = None
         self.last_frame: CvFrame = np.zeros((self.height, self.width, 3), np.uint8)
+        self.last_frame_lock = threading.Lock()
 
-        self.read_task: asyncio.Task[None] | None = None
+        self.read_thread: threading.Thread | None = None
+        self.read_thread_stop_event = threading.Event()
 
     def __del__(self) -> None:
         self.close()
@@ -59,16 +62,20 @@ class Webcam:
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         self.cap.set(cv2.CAP_PROP_FPS, self.fps)
 
-        self.read_task = asyncio.create_task(self.read_loop())
+        self.read_thread_stop_event.clear()
+        self.read_thread = threading.Thread(target=self.read_loop, daemon=True)
+        self.read_thread.start()
 
     def close(self) -> None:
+        if self.read_thread is not None:
+            if not self.read_thread_stop_event.is_set():
+                self.read_thread_stop_event.set()
+            self.read_thread.join()
+            self.read_thread = None
+
         if self.cap is not None:
             self.cap.release()
             self.cap = None
-
-        if self.read_task is not None:
-            self.read_task.cancel()
-            self.read_task = None
 
     def _read(self) -> tuple[bool, CvFrame]:
         if self.cap is None:
@@ -83,13 +90,17 @@ class Webcam:
 
         return True, frame
 
-    async def read_loop(self) -> None:
-        while True:
-            ok, frame = self._read()
-            if ok:
-                self.last_frame = frame
+    def read_loop(self) -> None:
+        last_tstamp = time.time()
+        delay = 1.0 / self.fps
+        while not self.read_thread_stop_event.is_set():
+            if time.time() - last_tstamp >= delay:
+                last_tstamp = time.time()
 
-            await asyncio.sleep(1.0 / self.fps)
+                ok, frame = self._read()
+                if ok:
+                    self.last_frame = frame
+            time.sleep(0.001)
 
     def read(self) -> CvFrame:
         return self.last_frame.copy()
