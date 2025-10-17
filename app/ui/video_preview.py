@@ -48,12 +48,22 @@ class VideoPanel(ttk.Frame):
         # Processed view
         self.processed_frame = ttk.LabelFrame(self, text="Processed View", padding=5)
         self.processed_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
+
+        self.show_processed_var = tk.BooleanVar(value=True)
+        self.show_processed_cb = ttk.Checkbutton(
+            self.processed_frame,
+            text="Show Processed",
+            variable=self.show_processed_var,
+            state="disabled",
+        )
+        self.show_processed_cb.grid(row=0, column=0, sticky="w", pady=2)
+
         self.processed_stream_canvas = tk.Canvas(
             self.processed_frame,
             background="gray30",
             highlightthickness=0,
         )
-        self.processed_stream_canvas.pack(fill="both", expand=True)
+        self.processed_stream_canvas.grid(row=1, column=0, sticky="nsew")
 
     def handle_show_camera_toggle(self) -> None:
         self.app_cfg.show_camera = self.show_camera_var.get()
