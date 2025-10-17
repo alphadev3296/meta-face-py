@@ -16,7 +16,7 @@ class AudioDelay:
     ) -> None:
         self.input_device_id = input_device_id
         self.output_device_id = output_device_id
-        self.delay_secs = delay_secs
+        self.delay_secs = delay_secs if delay_secs > 0 else 0.05
         self.sample_rate = sample_rate
         self.channels = channels
 

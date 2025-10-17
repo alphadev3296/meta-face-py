@@ -6,7 +6,6 @@ class Config(BaseSettings):
     STATS_QUEUE_SIZE: int = 4
 
     ROUNT_TRIP_TIME_THRESHOLD: float = 0.03  # seconds
-    BASE_DELAY: float = 0.3  # seconds
 
 
 config = Config()

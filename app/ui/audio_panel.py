@@ -80,12 +80,21 @@ class AudioPanel(ttk.LabelFrame):
             self.app_cfg.output_device_idx = -1
         self.output_device_combo.bind("<<ComboboxSelected>>", self.handle_output_device_selected)
 
-        # Delay label
-        self.delay_label = ttk.Label(self, text="Latency:")
-        self.delay_label.grid(row=3, column=0, sticky="w", pady=2)
-        self.delay_var = tk.StringVar(value="0 ms")
-        self.delay_entry = ttk.Entry(self, textvariable=self.delay_var, state="readonly")
-        self.delay_entry.grid(row=3, column=1, pady=2, sticky="ew")
+        # Delay slider
+        ttk.Label(self, text="Delay:").grid(row=5, column=0, sticky="w", pady=2)
+        self.delay_var = tk.DoubleVar(value=self.app_cfg.delay_secs)
+        self.delay_slider = ttk.Scale(
+            self,
+            from_=0,
+            to=2,
+            orient="horizontal",
+            variable=self.delay_var,
+            command=self.handle_delay_change,
+        )
+        self.delay_slider.grid(row=5, column=1, sticky="ew", pady=2)
+
+        self.delay_value_label = ttk.Label(self, text=f"{self.delay_var.get():.1f} secs")
+        self.delay_value_label.grid(row=5, column=2, sticky="w")
 
     def update_ui(self, status: StreamingStatus) -> None:
         if status in [
@@ -152,6 +161,17 @@ class AudioPanel(ttk.LabelFrame):
         if self.reconnect_audio_callback:
             self.reconnect_audio_callback()
 
+    def handle_delay_change(self, _event=None) -> None:  # type:ignore  # noqa: ANN001, PGH003
+        value = float(self.delay_var.get())
+        self.status_callback(f"Delay set to {value:.1f} secs")
+        self.delay_value_label.config(text=f"{value:.1f} secs")
+
+        self.app_cfg.delay_secs = value
+        self.app_cfg.save()
+
+        if self.reconnect_audio_callback:
+            self.reconnect_audio_callback()
+
     def list_input_devices(self) -> list[str]:
         ret: list[str] = []
 
@@ -195,7 +215,3 @@ class AudioPanel(ttk.LabelFrame):
         except Exception as ex:
             logger.error(f"Failed to get output device id: {ex}")
             return None
-
-    def show_delay(self, delay_secs: float) -> None:
-        delay = int(delay_secs * 1000)
-        self.delay_var.set(f"{delay} ms")

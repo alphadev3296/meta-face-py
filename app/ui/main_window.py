@@ -49,8 +49,8 @@ class VideoStreamApp(tk.Tk):
 
         # Configure window
         self.title("Metaface Client")
-        self.geometry("920x660")
-        self.minsize(920, 660)
+        self.geometry("950x680")
+        self.minsize(950, 680)
 
         # Configure grid
         self.columnconfigure(0, weight=1)
@@ -181,16 +181,10 @@ class VideoStreamApp(tk.Tk):
             if self.audio_delay is not None:
                 self.audio_delay.close()
 
-            delay = cfg_rtc.BASE_DELAY / 2
-            if self.streaming_status is StreamingStatus.CONNECTED and self.last_stats is not None:
-                delay = cfg_rtc.BASE_DELAY + self.last_stats.round_trip_time
-
-            self.audio_panel.show_delay(delay)
-
             self.audio_delay = AudioDelay(
                 input_device_id=input_device_id,
                 output_device_id=output_device_id,
-                delay_secs=delay,
+                delay_secs=self.app_data.delay_secs,
             )
             self.audio_delay.open()
         else:
@@ -373,18 +367,11 @@ class VideoStreamApp(tk.Tk):
             await asyncio.sleep(1.0 / self.app_data.fps)
 
     async def stats_loop(self) -> None:
-        prev_rtt: float = 0
         while self.is_running:
             try:
                 stats = await self.stats_queue.get()
 
-                if abs(stats.round_trip_time - prev_rtt) > cfg_rtc.ROUNT_TRIP_TIME_THRESHOLD:
-                    logger.debug(f"RTT: {stats.round_trip_time}")
-
-                    self.last_stats = stats
-                    self.reconnect_audio_delay()
-
-                    prev_rtt = stats.round_trip_time
+                self.last_stats = stats
 
             except Exception as ex:
                 logger.debug(f"Error updating RTT panel: {ex}")

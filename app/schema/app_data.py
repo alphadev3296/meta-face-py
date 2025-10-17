@@ -37,6 +37,7 @@ class AppConfig(BaseModel):
     # Audio settings
     input_device_idx: int = -1
     output_device_idx: int = -1
+    delay_secs: float = 0
 
     @classmethod
     def load(cls) -> "AppConfig":
