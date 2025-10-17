@@ -185,6 +185,8 @@ class VideoStreamApp(tk.Tk):
             if self.streaming_status is StreamingStatus.CONNECTED and self.last_stats is not None:
                 delay = cfg_rtc.BASE_DELAY + self.last_stats.round_trip_time
 
+            self.audio_panel.show_delay(delay)
+
             self.audio_delay = AudioDelay(
                 input_device_id=input_device_id,
                 output_device_id=output_device_id,
@@ -378,7 +380,6 @@ class VideoStreamApp(tk.Tk):
 
                 if abs(stats.round_trip_time - prev_rtt) > cfg_rtc.ROUNT_TRIP_TIME_THRESHOLD:
                     logger.debug(f"RTT: {stats.round_trip_time}")
-                    logger.debug(f"Delay: {stats.round_trip_time + cfg_rtc.BASE_DELAY}")
 
                     self.last_stats = stats
                     self.reconnect_audio_delay()

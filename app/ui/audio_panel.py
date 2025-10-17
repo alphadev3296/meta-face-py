@@ -80,6 +80,13 @@ class AudioPanel(ttk.LabelFrame):
             self.app_cfg.output_device_idx = -1
         self.output_device_combo.bind("<<ComboboxSelected>>", self.handle_output_device_selected)
 
+        # Delay label
+        self.delay_label = ttk.Label(self, text="Latency:")
+        self.delay_label.grid(row=3, column=0, sticky="w", pady=2)
+        self.delay_var = tk.StringVar(value="0 ms")
+        self.delay_entry = ttk.Entry(self, textvariable=self.delay_var, state="readonly")
+        self.delay_entry.grid(row=3, column=1, pady=2, sticky="ew")
+
     def update_ui(self, status: StreamingStatus) -> None:
         if status in [
             StreamingStatus.IDLE,
@@ -189,3 +196,7 @@ class AudioPanel(ttk.LabelFrame):
         except Exception as ex:
             logger.error(f"Failed to get output device id: {ex}")
             return None
+
+    def show_delay(self, delay_secs: float) -> None:
+        delay = int(delay_secs * 1000)
+        self.delay_var.set(f"{delay} ms")
