@@ -16,6 +16,9 @@ class VideoPanel(ttk.Frame):
 
         self.app_cfg = app_cfg
 
+        self._processed_img_id: int | None = None
+        self._camera_img_id: int | None = None
+
         # Configure grid rows and columns
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
@@ -72,74 +75,74 @@ class VideoPanel(ttk.Frame):
         self.app_cfg.save()
 
     def show_processed_frame(self, frame: CvFrame) -> None:
-        # Convert BGR (OpenCV) -> RGB (Pillow)
+        # Convert OpenCV BGR -> RGB
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Target display size
         target_w = self.processed_stream_canvas.winfo_width()
         target_h = self.processed_stream_canvas.winfo_height()
         if target_w <= 1 or target_h <= 1:
-            # Canvas not yet realized, skip this frame
             return
 
-        # Compute scale ratio while preserving aspect ratio
         h, w = frame.shape[:2]
-        ratio = min(target_w / w, target_h / h)
-        new_w, new_h = int(w * ratio), int(h * ratio)
+        scale = min(target_w / w, target_h / h)
+        new_w, new_h = int(w * scale), int(h * scale)
+        resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-        resized_frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
-
-        # Convert to PIL Image
-        img = Image.fromarray(resized_frame)
-
-        # Convert to ImageTk PhotoImage
+        # Convert to ImageTk once per frame
+        img = Image.fromarray(resized)
         imgtk = ImageTk.PhotoImage(image=img)
 
-        # Update canvas
-        self.processed_stream_canvas.delete("all")
-        self.processed_stream_canvas.create_image(
-            target_w // 2,
-            target_h // 2,
-            image=imgtk,
-            anchor="center",
-        )
-        self.processed_stream_canvas.image = imgtk  # type: ignore  # noqa: PGH003 # keep reference
+        # Only create the image once; then just update it
+        if not hasattr(self, "_processed_img_id") or self._processed_img_id is None:
+            # first time: create image item centered on canvas
+            self._processed_img_id = self.processed_stream_canvas.create_image(
+                target_w / 2,
+                target_h / 2,
+                image=imgtk,
+                anchor="center",
+            )
+        else:
+            # just update existing image
+            self.processed_stream_canvas.itemconfig(self._processed_img_id, image=imgtk)
+
+        self._processed_imgtk = imgtk
 
     def show_camera_frame(self, frame: CvFrame) -> None:
         if not self.app_cfg.show_camera:
-            # Clear canvas
             self.camera_stream_canvas.delete("all")
+            self._camera_imgtk = None
+            self._camera_img_id = None
             return
 
-        # Convert BGR (OpenCV) -> RGB (Pillow)
+        # Convert OpenCV BGR -> RGB
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Target display size
         target_w = self.camera_stream_canvas.winfo_width()
         target_h = self.camera_stream_canvas.winfo_height()
         if target_w <= 1 or target_h <= 1:
-            # Canvas not yet realized, skip this frame
             return
 
-        # Compute scale ratio while preserving aspect ratio
         h, w = frame.shape[:2]
-        ratio = min(target_w / w, target_h / h)
-        new_w, new_h = int(w * ratio), int(h * ratio)
+        scale = min(target_w / w, target_h / h)
+        new_w, new_h = int(w * scale), int(h * scale)
+        resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-        resized_frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
-
-        # Convert to PIL Image
-        img = Image.fromarray(resized_frame)
-
-        # Convert to ImageTk PhotoImage
+        # Convert to ImageTk once per frame
+        img = Image.fromarray(resized)
         imgtk = ImageTk.PhotoImage(image=img)
 
-        # Update canvas
-        self.camera_stream_canvas.delete("all")
-        self.camera_stream_canvas.create_image(
-            target_w // 2,
-            target_h // 2,
-            image=imgtk,
-            anchor="center",
-        )
-        self.camera_stream_canvas.image = imgtk  # type: ignore  # noqa: PGH003 # keep reference
+        # Only create the image once; then just update it
+        if not hasattr(self, "_camera_img_id") or self._camera_img_id is None:
+            # first time: create image item centered on canvas
+            self._camera_img_id = self.camera_stream_canvas.create_image(
+                target_w // 2,
+                target_h // 2,
+                image=imgtk,
+                anchor="center",
+            )
+        else:
+            # just update existing item
+            self.camera_stream_canvas.itemconfig(self._camera_img_id, image=imgtk)
+
+        # keep a reference or image will vanish
+        self._camera_imgtk = imgtk

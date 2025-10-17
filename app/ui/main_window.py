@@ -1,5 +1,7 @@
 import asyncio
 import base64
+import threading
+import time
 import tkinter as tk
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -14,7 +16,6 @@ from jose import jwt
 from loguru import logger
 
 from app.config.auth import config as cfg_auth
-from app.config.webrtc import config as cfg_rtc
 from app.media.audio import AudioDelay
 from app.media.webcam import CvFrame, Webcam
 from app.network.webrtc import WebRTCClient
@@ -40,9 +41,10 @@ class VideoStreamApp(tk.Tk):
         self.webcam: Webcam | None = None
         self.audio_delay: AudioDelay | None = None
         self.webrtc_client: WebRTCClient | None = None
-        self.vcam_frame_queue: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=cfg_rtc.VCAM_FRAME_QUEUE_SIZE)
-        self.stats_queue: asyncio.Queue[WebRTCStats] = asyncio.Queue(maxsize=cfg_rtc.STATS_QUEUE_SIZE)
-        self.last_stats: WebRTCStats | None = None
+        self.vcam_frame: CvFrame = np.zeros((480, 640, 3), np.uint8)
+        self.vcam_frame_lock = threading.Lock()
+        self.stats: WebRTCStats | None = None
+        self.stats_lock = threading.Lock()
 
         self.is_running = True
         self.streaming_status = StreamingStatus.IDLE
@@ -50,7 +52,7 @@ class VideoStreamApp(tk.Tk):
         # Configure window
         self.title("Metaface Client")
         self.geometry("950x680")
-        self.minsize(950, 680)
+        self.resizable(False, False)  # noqa: FBT003
 
         # Configure grid
         self.columnconfigure(0, weight=1)
@@ -67,18 +69,12 @@ class VideoStreamApp(tk.Tk):
         self.reconnect_camera()
         self.reconnect_audio_delay()
 
-        self.virtual_camera_task = asyncio.create_task(self.virtual_camera_loop())
-        self.camera_task = asyncio.create_task(self.camera_loop())
-        self.update_ui_task = asyncio.create_task(self.update_ui_loop())
-        self.stats_task = asyncio.create_task(self.stats_loop())
+        self.virtual_camera_thread = threading.Thread(target=self.virtual_camera_loop, daemon=True)
+        self.start_camera_display()
+        self.update_ui_thread = threading.Thread(target=self.update_ui_loop, daemon=True)
 
-    async def run_async(self) -> None:
-        """
-        Run main event loop asynchronously.
-        """
-        while self.is_running:
-            self.update()
-            await asyncio.sleep(0.001)
+        self.virtual_camera_thread.start()
+        self.update_ui_thread.start()
 
     def destroy(self) -> None:
         """
@@ -293,13 +289,14 @@ class VideoStreamApp(tk.Tk):
 
     async def on_receive_frame(self, frame: CvFrame, _frame_number: int) -> None:
         try:
+            logger.debug(f"Received frame: {frame.shape}")
+
             # Show frame
             self.video_panel.show_processed_frame(frame)
 
-            # Put frame in queue
-            if self.vcam_frame_queue.full():
-                self.vcam_frame_queue.get_nowait()
-            self.vcam_frame_queue.put_nowait(frame)
+            # Store frame
+            with self.vcam_frame_lock:
+                self.vcam_frame = frame
 
             # Put stats in queue
             if self.webrtc_client is None:
@@ -309,24 +306,21 @@ class VideoStreamApp(tk.Tk):
             webrtc_stats: dict[str, Any] = await self.webrtc_client.pc.getStats()
             for field in webrtc_stats.values():
                 if isinstance(field, RTCRemoteInboundRtpStreamStats):
-                    if self.stats_queue.full():
-                        self.stats_queue.get_nowait()
-                    self.stats_queue.put_nowait(
-                        WebRTCStats(
+                    with self.stats_lock:
+                        self.stats = WebRTCStats(
                             round_trip_time=field.roundTripTime or 0,
                         )
-                    )
+
         except Exception as ex:
             logger.error(f"Failed to receive frame: {ex}")
 
-    async def virtual_camera_loop(self) -> None:
+    def virtual_camera_loop(self) -> None:
         while self.is_running:
             width, height = CAMERA_RESOLUTIONS[self.app_data.resolution]
             fps = self.app_data.fps
 
-            if self.vcam_frame_queue.full():
-                self.vcam_frame_queue.get_nowait()
-            self.vcam_frame_queue.put_nowait(np.zeros((height, width, 3), np.uint8))
+            with self.vcam_frame_lock:
+                self.vcam_frame = np.zeros((height, width, 3), np.uint8)
 
             try:
                 vcam = pyvirtualcam.Camera(width, height, fps)
@@ -337,11 +331,9 @@ class VideoStreamApp(tk.Tk):
                     if width != new_width or height != new_height or fps != new_fps:
                         break
 
-                    try:
-                        frame = await self.vcam_frame_queue.get()
-                    except:  # noqa: E722
-                        # If queue is empty, paint black frame
-                        frame = np.zeros((height, width, 3), np.uint8)
+                    frame = np.zeros((height, width, 3), np.uint8)
+                    with self.vcam_frame_lock:
+                        frame = self.vcam_frame
 
                     try:
                         if frame.shape != (height, width, 3):
@@ -353,29 +345,18 @@ class VideoStreamApp(tk.Tk):
                         logger.debug(f"Error sending frame to virtual camera: {ex}")
                 vcam.close()
             except:  # noqa: E722
-                await asyncio.sleep(1.0 / self.app_data.fps)
+                time.sleep(1.0 / self.app_data.fps)
 
-    async def camera_loop(self) -> None:
-        while self.is_running:
-            try:
-                if self.webcam is not None:
-                    frame = self.webcam.read()
-                    if frame is not None:
-                        self.video_panel.show_camera_frame(frame)
-            except Exception as ex:
-                logger.debug(f"Error reading frame from camera: {ex}")
-            await asyncio.sleep(1.0 / self.app_data.fps)
+    def start_camera_display(self) -> None:
+        self._update_camera_display()
 
-    async def stats_loop(self) -> None:
-        while self.is_running:
-            try:
-                stats = await self.stats_queue.get()
+    def _update_camera_display(self) -> None:
+        frame = self.webcam.read()
+        if frame is not None:
+            logger.debug(f"Local camera frame: {frame.shape}")
+            self.video_panel.show_camera_frame(frame)
 
-                self.last_stats = stats
-
-            except Exception as ex:
-                logger.debug(f"Error updating RTT panel: {ex}")
-            await asyncio.sleep(0.01)
+        self.after(10, self._update_camera_display)
 
     async def update_ui_loop(self) -> None:
         prev_state = None
