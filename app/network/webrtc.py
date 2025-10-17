@@ -8,13 +8,13 @@ from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.codecs import h264, vpx
 from loguru import logger
 
-from app.video.videotrack import WebcamVideoTrack
-from app.video.webcam import CvFrame
+from app.media.videotrack import WebcamVideoTrack
+from app.media.webcam import CvFrame
 
 # Set codec parameters for good quality
-h264.DEFAULT_BITRATE = 10 << 20  # 10 Mbps
+h264.DEFAULT_BITRATE = 20 << 20  # 20 Mbps
 h264.MAX_FRAME_RATE = 30
-vpx.DEFAULT_BITRATE = 10 << 20  # 10 Mbps
+vpx.DEFAULT_BITRATE = 20 << 20  # 20 Mbps
 vpx.MAX_FRAME_RATE = 30
 
 
@@ -25,7 +25,7 @@ class WebRTCClient:
         jwt_token: str,
         b64_photo: str,
         read_frame_func: Callable[[], CvFrame],
-        on_recv_frame_callback: Callable[[CvFrame, int], None] | None = None,
+        on_recv_frame_callback: Callable[[CvFrame, int], Coroutine[Any, Any, None]] | None = None,
         on_disconnect_callback: Callable[[], Coroutine[Any, Any, None]] | None = None,
     ) -> None:
         self.pc = RTCPeerConnection()
@@ -60,7 +60,7 @@ class WebRTCClient:
 
                         # Call external callback
                         if self.on_recv_frame_callback is not None:
-                            self.on_recv_frame_callback(img, frame.pts or 0)
+                            await self.on_recv_frame_callback(img, frame.pts or 0)
 
                         # Put frame in queue (non-blocking)
                         if self.recv_frames.full():

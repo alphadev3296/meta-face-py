@@ -4,24 +4,30 @@ import tkinter as tk
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tkinter import messagebox, ttk
+from typing import Any
 
 import cv2
 import numpy as np
 import pyvirtualcam
+from aiortc import RTCRemoteInboundRtpStreamStats
 from jose import jwt
 from loguru import logger
 
 from app.config.auth import config as cfg_auth
+from app.config.webrtc import config as cfg_rtc
+from app.media.audio import AudioDelay
+from app.media.webcam import CvFrame, Webcam
 from app.network.webrtc import WebRTCClient
 from app.schema.app_data import AppConfig, StreamingStatus
 from app.schema.camera_resolution import CAMERA_RESOLUTIONS
+from app.schema.webrtc import WebRTCStats
+from app.ui.audio_panel import AudioPanel
 from app.ui.camera_panel import CameraPanel
 from app.ui.processing_panel import ProcessingPanel
 from app.ui.server_panel import ServerPanel
 from app.ui.status_bar import StatusBar
 from app.ui.tone_panel import TonePanel
 from app.ui.video_preview import VideoPanel
-from app.video.webcam import CvFrame, Webcam
 
 
 class VideoStreamApp(tk.Tk):
@@ -32,16 +38,19 @@ class VideoStreamApp(tk.Tk):
 
         self.app_data = AppConfig.load()
         self.webcam: Webcam | None = None
+        self.audio_delay: AudioDelay | None = None
         self.webrtc_client: WebRTCClient | None = None
-        self.vcam_frames: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=4)
+        self.vcam_frame_queue: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=cfg_rtc.VCAM_FRAME_QUEUE_SIZE)
+        self.stats_queue: asyncio.Queue[WebRTCStats] = asyncio.Queue(maxsize=cfg_rtc.STATS_QUEUE_SIZE)
+        self.last_stats: WebRTCStats | None = None
 
         self.is_running = True
         self.streaming_status = StreamingStatus.IDLE
 
         # Configure window
         self.title("Metaface Client")
-        self.geometry("920x560")
-        self.minsize(920, 560)
+        self.geometry("920x660")
+        self.minsize(920, 660)
 
         # Configure grid
         self.columnconfigure(0, weight=1)
@@ -56,10 +65,12 @@ class VideoStreamApp(tk.Tk):
 
         # Start background tasks
         self.reconnect_camera()
+        self.reconnect_audio_delay()
 
         self.virtual_camera_task = asyncio.create_task(self.virtual_camera_loop())
         self.camera_task = asyncio.create_task(self.camera_loop())
         self.update_ui_task = asyncio.create_task(self.update_ui_loop())
+        self.stats_task = asyncio.create_task(self.stats_loop())
 
     async def run_async(self) -> None:
         """
@@ -98,12 +109,27 @@ class VideoStreamApp(tk.Tk):
         )
         self.camera_panel.grid(row=0, column=0, sticky="ns", pady=2, padx=2)
 
+        self.audio_panel = AudioPanel(
+            parent=control_frame,
+            status_callback=self.update_status_bar,
+            app_data=self.app_data,
+            reconnect_audio_fn=self.reconnect_audio_delay,
+        )
+        self.audio_panel.grid(row=0, column=1, sticky="ns", pady=2, padx=2)
+
         self.processing_panel = ProcessingPanel(
             parent=control_frame,
             status_callback=self.update_status_bar,
             app_cfg=self.app_data,
         )
-        self.processing_panel.grid(row=0, column=1, sticky="ns", pady=2, padx=2)
+        self.processing_panel.grid(row=0, column=2, sticky="ns", pady=2, padx=2)
+
+        self.tone_panel = TonePanel(
+            parent=control_frame,
+            status_callback=self.update_status_bar,
+            app_data=self.app_data,
+        )
+        self.tone_panel.grid(row=0, column=3, sticky="ns", pady=2, padx=2)
 
         self.server_panel = ServerPanel(
             parent=control_frame,
@@ -112,14 +138,7 @@ class VideoStreamApp(tk.Tk):
             connect_callback=self.connect_server,
             disconnect_callback=self.disconnect_server,
         )
-        self.server_panel.grid(row=0, column=2, sticky="ns", pady=2, padx=2)
-
-        self.tone_panel = TonePanel(
-            parent=control_frame,
-            status_callback=self.update_status_bar,
-            app_data=self.app_data,
-        )
-        self.tone_panel.grid(row=0, column=3, sticky="ns", pady=2, padx=2)
+        self.server_panel.grid(row=1, column=0, columnspan=3, sticky="w", pady=2, padx=2)
 
     def create_video_panel(self) -> None:
         """Create right video preview panel"""
@@ -154,6 +173,28 @@ class VideoStreamApp(tk.Tk):
             self.webcam.open()
         else:
             messagebox.showerror("Error", "No camera device selected")
+
+    def reconnect_audio_delay(self) -> None:
+        input_device_id = self.audio_panel.get_input_device_id()
+        output_device_id = self.audio_panel.get_output_device_id()
+        if input_device_id is not None and output_device_id is not None:
+            if self.audio_delay is not None:
+                self.audio_delay.close()
+
+            delay = cfg_rtc.BASE_DELAY / 2
+            if self.streaming_status is StreamingStatus.CONNECTED and self.last_stats is not None:
+                delay = cfg_rtc.BASE_DELAY + self.last_stats.round_trip_time
+
+            self.audio_panel.show_delay(delay)
+
+            self.audio_delay = AudioDelay(
+                input_device_id=input_device_id,
+                output_device_id=output_device_id,
+                delay_secs=delay,
+            )
+            self.audio_delay.open()
+        else:
+            messagebox.showerror("Error", "No audio device selected")
 
     def process_camera_frame(self, frame: CvFrame) -> CvFrame:
         # Copy frame
@@ -253,23 +294,45 @@ class VideoStreamApp(tk.Tk):
         self.streaming_status = StreamingStatus.DISCONNECTED
         self.update_status_bar("Disconnected")
 
-    def on_receive_frame(self, frame: CvFrame, _frame_number: int) -> None:
-        # Show frame
-        self.video_panel.show_processed_frame(frame)
+        self.reconnect_camera()
+        self.reconnect_audio_delay()
 
-        # Put frame in queue
-        if self.vcam_frames.full():
-            self.vcam_frames.get_nowait()
-        self.vcam_frames.put_nowait(frame)
+    async def on_receive_frame(self, frame: CvFrame, _frame_number: int) -> None:
+        try:
+            # Show frame
+            self.video_panel.show_processed_frame(frame)
+
+            # Put frame in queue
+            if self.vcam_frame_queue.full():
+                self.vcam_frame_queue.get_nowait()
+            self.vcam_frame_queue.put_nowait(frame)
+
+            # Put stats in queue
+            if self.webrtc_client is None:
+                logger.warning("WebRTC client is not initialized")
+                return
+
+            webrtc_stats: dict[str, Any] = await self.webrtc_client.pc.getStats()
+            for field in webrtc_stats.values():
+                if isinstance(field, RTCRemoteInboundRtpStreamStats):
+                    if self.stats_queue.full():
+                        self.stats_queue.get_nowait()
+                    self.stats_queue.put_nowait(
+                        WebRTCStats(
+                            round_trip_time=field.roundTripTime or 0,
+                        )
+                    )
+        except Exception as ex:
+            logger.error(f"Failed to receive frame: {ex}")
 
     async def virtual_camera_loop(self) -> None:
         while self.is_running:
             width, height = CAMERA_RESOLUTIONS[self.app_data.resolution]
             fps = self.app_data.fps
 
-            if self.vcam_frames.full():
-                self.vcam_frames.get_nowait()
-            self.vcam_frames.put_nowait(np.zeros((height, width, 3), np.uint8))
+            if self.vcam_frame_queue.full():
+                self.vcam_frame_queue.get_nowait()
+            self.vcam_frame_queue.put_nowait(np.zeros((height, width, 3), np.uint8))
 
             try:
                 vcam = pyvirtualcam.Camera(width, height, fps)
@@ -281,7 +344,7 @@ class VideoStreamApp(tk.Tk):
                         break
 
                     try:
-                        frame = await self.vcam_frames.get()
+                        frame = await self.vcam_frame_queue.get()
                     except:  # noqa: E722
                         # If queue is empty, paint black frame
                         frame = np.zeros((height, width, 3), np.uint8)
@@ -309,6 +372,24 @@ class VideoStreamApp(tk.Tk):
                 logger.debug(f"Error reading frame from camera: {ex}")
             await asyncio.sleep(1.0 / self.app_data.fps)
 
+    async def stats_loop(self) -> None:
+        prev_rtt: float = 0
+        while self.is_running:
+            try:
+                stats = await self.stats_queue.get()
+
+                if abs(stats.round_trip_time - prev_rtt) > cfg_rtc.ROUNT_TRIP_TIME_THRESHOLD:
+                    logger.debug(f"RTT: {stats.round_trip_time}")
+
+                    self.last_stats = stats
+                    self.reconnect_audio_delay()
+
+                    prev_rtt = stats.round_trip_time
+
+            except Exception as ex:
+                logger.debug(f"Error updating RTT panel: {ex}")
+            await asyncio.sleep(0.01)
+
     async def update_ui_loop(self) -> None:
         prev_state = None
         prev_tone_enabled = None
@@ -319,6 +400,7 @@ class VideoStreamApp(tk.Tk):
 
                 if status != prev_state:
                     self.camera_panel.update_ui(status)
+                    self.audio_panel.update_ui(status)
                     self.processing_panel.update_ui(status)
                     self.server_panel.update_ui(status)
                     prev_state = status

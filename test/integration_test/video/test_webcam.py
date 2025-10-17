@@ -1,7 +1,7 @@
 import cv2
 from loguru import logger
 
-from app.video.webcam import Webcam
+from app.media.webcam import Webcam
 
 
 def test_list_devices() -> None:
