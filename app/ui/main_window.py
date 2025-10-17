@@ -267,6 +267,9 @@ class VideoStreamApp(tk.Tk):
             await self.disconnect_server()
 
     async def disconnect_server(self) -> None:
+        if self.streaming_status is not StreamingStatus.CONNECTED:
+            return
+
         self.streaming_status = StreamingStatus.DISCONNECTING
         self.update_status_bar("Disconnecting...")
 
@@ -290,8 +293,6 @@ class VideoStreamApp(tk.Tk):
 
     async def on_receive_frame(self, frame: CvFrame, _frame_number: int) -> None:
         try:
-            logger.debug(f"Received frame: {frame.shape}")
-
             # Show frame
             self.video_panel.show_processed_frame(frame)
 
