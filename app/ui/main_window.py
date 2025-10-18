@@ -219,11 +219,11 @@ class VideoStreamApp(tk.Tk):
 
     async def connect_server(self) -> None:
         try:
+            if self.streaming_status not in [StreamingStatus.IDLE, StreamingStatus.DISCONNECTED]:
+                return
+
             self.streaming_status = StreamingStatus.CONNECTING
             self.update_status_bar("Connecting...")
-
-            # Start local camera
-            self.reconnect_camera()
 
             # Create JWT token
             jwt_token = jwt.encode(
@@ -288,9 +288,6 @@ class VideoStreamApp(tk.Tk):
         self.streaming_status = StreamingStatus.DISCONNECTED
         self.update_status_bar("Disconnected")
 
-        self.reconnect_camera()
-        self.reconnect_audio_delay()
-
     async def on_receive_frame(self, frame: CvFrame, _frame_number: int) -> None:
         try:
             # Show frame
@@ -339,9 +336,9 @@ class VideoStreamApp(tk.Tk):
 
                     try:
                         if frame.shape != (height, width, 3):
-                            frame = cv2.resize(frame, (width, height))
+                            frame = cv2.resize(frame, (width, height))  # type: ignore  # noqa: PGH003
 
-                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # type: ignore # noqa: PGH003
                         vcam.send(frame)
                     except Exception as ex:
                         logger.debug(f"Error sending frame to virtual camera: {ex}")
@@ -353,7 +350,8 @@ class VideoStreamApp(tk.Tk):
 
     def camera_display_loop(self) -> None:
         while self.is_running:
-            self.video_panel.show_camera_frame(self.webcam.read())
+            if self.webcam is not None:
+                self.video_panel.show_camera_frame(self.webcam.read())
             time.sleep(1.0 / self.app_data.fps)
 
     def update_ui_loop(self) -> None:

@@ -62,7 +62,7 @@ class WebRTCClient:
                     except Exception as e:
                         logger.error(f"Error receiving frame: {e}")
                         if self.on_disconnect_callback is not None:
-                            await self.on_disconnect_callback()
+                            asyncio.create_task(self.on_disconnect_callback())  # noqa: RUF006
                         break
 
         # Create offer

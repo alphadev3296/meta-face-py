@@ -127,33 +127,7 @@ class ServerPanel(ttk.LabelFrame):
             self.app_cfg.save()
 
     def handle_connect(self) -> None:
-        logger.debug(f"loop status: {self.loop.is_running()}")
-
-        def done_callback(future):
-            try:
-                exc = future.exception()
-                if exc:
-                    logger.error(f"Connect task failed: {exc}")
-            except asyncio.CancelledError:
-                logger.debug("Connect task was cancelled")
-            except Exception as e:
-                logger.error(f"Error in connect callback: {e}")
-
-        future = asyncio.run_coroutine_threadsafe(self.connect_callback(), self.loop)
-        future.add_done_callback(done_callback)
+        asyncio.run_coroutine_threadsafe(self.connect_callback(), self.loop)
 
     def handle_disconnect(self) -> None:
-        logger.debug(f"loop status: {self.loop.is_running()}")
-
-        def done_callback(future):
-            try:
-                exc = future.exception()
-                if exc:
-                    logger.error(f"Disconnect task failed: {exc}")
-            except asyncio.CancelledError:
-                logger.debug("Disconnect task was cancelled")
-            except Exception as e:
-                logger.error(f"Error in disconnect callback: {e}")
-
-        future = asyncio.run_coroutine_threadsafe(self.disconnect_callback(), self.loop)
-        future.add_done_callback(done_callback)
+        asyncio.run_coroutine_threadsafe(self.disconnect_callback(), self.loop)
