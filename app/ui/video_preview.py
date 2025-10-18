@@ -16,6 +16,11 @@ class VideoPanel(ttk.Frame):
 
         self.app_cfg = app_cfg
 
+        self._processed_img_id: int | None = None
+        self._camera_img_id: int | None = None
+        self._last_camera_frame: CvFrame | None = None
+        self._last_processed_frame: CvFrame | None = None
+
         # Configure grid rows and columns
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
@@ -67,79 +72,78 @@ class VideoPanel(ttk.Frame):
         )
         self.processed_stream_canvas.grid(row=1, column=0, sticky="nsew")
 
+        # Bind resize events
+        self.camera_stream_canvas.bind("<Configure>", self._on_camera_resize)
+        self.processed_stream_canvas.bind("<Configure>", self._on_processed_resize)
+
+    # ---- Event handlers ----
+    def _on_camera_resize(self, _event=None) -> None:  # type: ignore  # noqa: ANN001, PGH003
+        """When resized, re-render the last shown camera frame if available."""
+        self.camera_stream_canvas.delete("all")
+        self._camera_img_id = None
+        if self._last_camera_frame is not None:
+            self.show_camera_frame(self._last_camera_frame)
+
+    def _on_processed_resize(self, _event=None) -> None:  # type: ignore  # noqa: ANN001, PGH003
+        """When resized, re-render the last shown processed frame if available."""
+        self.processed_stream_canvas.delete("all")
+        self._processed_img_id = None
+        if self._last_processed_frame is not None:
+            self.show_processed_frame(self._last_processed_frame)
+
     def handle_show_camera_toggle(self) -> None:
         self.app_cfg.show_camera = self.show_camera_var.get()
         self.app_cfg.save()
 
+    # ---- Display methods ----
     def show_processed_frame(self, frame: CvFrame) -> None:
-        # Convert BGR (OpenCV) -> RGB (Pillow)
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        self._last_processed_frame = frame  # cache last frame
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Target display size
         target_w = self.processed_stream_canvas.winfo_width()
         target_h = self.processed_stream_canvas.winfo_height()
         if target_w <= 1 or target_h <= 1:
-            # Canvas not yet realized, skip this frame
             return
 
-        # Compute scale ratio while preserving aspect ratio
-        h, w = frame.shape[:2]
-        ratio = min(target_w / w, target_h / h)
-        new_w, new_h = int(w * ratio), int(h * ratio)
+        h, w = frame_rgb.shape[:2]
+        scale = min(target_w / w, target_h / h)
+        resized = cv2.resize(frame_rgb, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        imgtk = ImageTk.PhotoImage(Image.fromarray(resized))
 
-        resized_frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        if self._processed_img_id is None:
+            self._processed_img_id = self.processed_stream_canvas.create_image(
+                target_w / 2, target_h / 2, image=imgtk, anchor="center"
+            )
+        else:
+            self.processed_stream_canvas.itemconfig(self._processed_img_id, image=imgtk)
 
-        # Convert to PIL Image
-        img = Image.fromarray(resized_frame)
-
-        # Convert to ImageTk PhotoImage
-        imgtk = ImageTk.PhotoImage(image=img)
-
-        # Update canvas
-        self.processed_stream_canvas.delete("all")
-        self.processed_stream_canvas.create_image(
-            target_w // 2,
-            target_h // 2,
-            image=imgtk,
-            anchor="center",
-        )
-        self.processed_stream_canvas.image = imgtk  # type: ignore  # noqa: PGH003 # keep reference
+        self._processed_imgtk = imgtk  # keep ref
 
     def show_camera_frame(self, frame: CvFrame) -> None:
         if not self.app_cfg.show_camera:
-            # Clear canvas
             self.camera_stream_canvas.delete("all")
+            self._camera_img_id = None
+            self._camera_imgtk = None
             return
 
-        # Convert BGR (OpenCV) -> RGB (Pillow)
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        self._last_camera_frame = frame  # cache last frame
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Target display size
         target_w = self.camera_stream_canvas.winfo_width()
         target_h = self.camera_stream_canvas.winfo_height()
         if target_w <= 1 or target_h <= 1:
-            # Canvas not yet realized, skip this frame
             return
 
-        # Compute scale ratio while preserving aspect ratio
-        h, w = frame.shape[:2]
-        ratio = min(target_w / w, target_h / h)
-        new_w, new_h = int(w * ratio), int(h * ratio)
+        h, w = frame_rgb.shape[:2]
+        scale = min(target_w / w, target_h / h)
+        resized = cv2.resize(frame_rgb, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        imgtk = ImageTk.PhotoImage(Image.fromarray(resized))
 
-        resized_frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        if self._camera_img_id is None:
+            self._camera_img_id = self.camera_stream_canvas.create_image(
+                target_w / 2, target_h / 2, image=imgtk, anchor="center"
+            )
+        else:
+            self.camera_stream_canvas.itemconfig(self._camera_img_id, image=imgtk)
 
-        # Convert to PIL Image
-        img = Image.fromarray(resized_frame)
-
-        # Convert to ImageTk PhotoImage
-        imgtk = ImageTk.PhotoImage(image=img)
-
-        # Update canvas
-        self.camera_stream_canvas.delete("all")
-        self.camera_stream_canvas.create_image(
-            target_w // 2,
-            target_h // 2,
-            image=imgtk,
-            anchor="center",
-        )
-        self.camera_stream_canvas.image = imgtk  # type: ignore  # noqa: PGH003 # keep reference
+        self._camera_imgtk = imgtk

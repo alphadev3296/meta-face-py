@@ -1,4 +1,5 @@
-import asyncio
+import threading
+import time
 
 import numpy as np
 import sounddevice as sd
@@ -24,9 +25,10 @@ class AudioDelay:
         self.delay_buffer = np.zeros(self.buffer_size)
         self.buffer_index = 0
 
-        self.delay_task: asyncio.Task[None] | None = None
+        self.delay_thread: threading.Thread | None = None
+        self.delay_thread_stop_event = threading.Event()
 
-    def audio_callback(self, indata, outdata, frames, time, status) -> None:  # type:ignore  # noqa: ANN001, ARG002, PGH003
+    def _audio_callback(self, indata, outdata, frames, time, status) -> None:  # type:ignore  # noqa: ANN001, ARG002, PGH003
         if status:
             logger.debug(f"Status: {status}")
 
@@ -49,25 +51,30 @@ class AudioDelay:
         outdata[:] = delayed_audio.reshape(-1, self.channels)
 
     def open(self) -> None:
-        self.delay_task = asyncio.create_task(self._delay_loop())
+        self.delay_thread_stop_event.clear()
+        self.delay_thread = threading.Thread(target=self._delay_loop, daemon=True)
+        self.delay_thread.start()
 
     def close(self) -> None:
-        if self.delay_task is not None:
-            self.delay_task.cancel()
+        if self.delay_thread is not None:
+            if not self.delay_thread_stop_event.is_set():
+                self.delay_thread_stop_event.set()
+            self.delay_thread.join()
+            self.delay_thread = None
 
-    async def _delay_loop(self) -> None:
-        while True:
+    def _delay_loop(self) -> None:
+        while not self.delay_thread_stop_event.is_set():
             try:
                 with sd.Stream(
                     samplerate=self.sample_rate,
                     channels=self.channels,
                     dtype="float32",
                     device=(self.input_device_id, self.output_device_id),
-                    callback=self.audio_callback,
+                    callback=self._audio_callback,
                 ):
-                    while True:  # noqa: ASYNC110
-                        await asyncio.sleep(1.0)
+                    while not self.delay_thread_stop_event.is_set():
+                        time.sleep(0.1)
             except Exception as e:
                 logger.error(f"Error streaming audio: {e}")
 
-            await asyncio.sleep(0.1)
+            time.sleep(0.1)

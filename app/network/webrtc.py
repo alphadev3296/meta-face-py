@@ -24,6 +24,9 @@ class WebRTCClient:
         self.pc = RTCPeerConnection()
         self.recv_frames: asyncio.Queue[CvFrame] = asyncio.Queue(maxsize=10)
 
+        self.stop_event = asyncio.Event()
+        self.track_task: asyncio.Task[None] | None = None
+
         self.offer_url = offer_url
         self.jwt_token = jwt_token
         self.b64_photo = b64_photo
@@ -44,8 +47,8 @@ class WebRTCClient:
         async def on_track(track: MediaStreamTrack) -> None:
             logger.debug(f"Receiving {track.kind} track")
             if track.kind == "video":
-                while True:
-                    try:
+                try:
+                    while not self.stop_event.is_set():
                         frame = await track.recv()
                         # Convert to numpy array for display
                         img = frame.to_ndarray(format="rgb24")  # type: ignore  # noqa: PGH003
@@ -59,11 +62,14 @@ class WebRTCClient:
                         if self.recv_frames.full():
                             self.recv_frames.get_nowait()
                         self.recv_frames.put_nowait(img)
-                    except Exception as e:
-                        logger.error(f"Error receiving frame: {e}")
-                        if self.on_disconnect_callback is not None:
-                            await self.on_disconnect_callback()
-                        break
+
+                except Exception as e:
+                    logger.error(f"Error receiving frame: {e}")
+                    if self.on_disconnect_callback is not None:
+                        asyncio.create_task(self.on_disconnect_callback())  # noqa: RUF006
+
+        # keep a ref to the track task so we can await it on close
+        self.track_task = asyncio.create_task(self._wait_for_video_track())
 
         # Create offer
         offer = await self.pc.createOffer()
@@ -110,7 +116,22 @@ class WebRTCClient:
             else await self.recv_frames.get()
         )
 
+    async def _wait_for_video_track(self) -> None:
+        """Hold client loop alive until stop event is set."""
+        while not self.stop_event.is_set():  # noqa: ASYNC110
+            await asyncio.sleep(0.1)
+
     async def close(self) -> None:
         """Close connection and cleanup"""
+        logger.debug("Closing connection...")
+
+        # Signal track loop to exit
+        self.stop_event.set()
+
+        # Wait for track task to finish
+        if self.track_task is not None:
+            await self.track_task
+
+        # Now close the RTCPeerConnection
         await self.pc.close()
         logger.debug("Connection closed")

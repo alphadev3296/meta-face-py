@@ -1,8 +1,11 @@
 import asyncio
+import threading
 import tkinter as tk
 from collections.abc import Callable, Coroutine
 from tkinter import ttk
 from typing import Any
+
+from loguru import logger
 
 from app.schema.app_data import AppConfig, StreamingStatus
 
@@ -26,6 +29,11 @@ class ServerPanel(ttk.LabelFrame):
         self.status_callback = status_callback
         self.connect_callback = connect_callback
         self.disconnect_callback = disconnect_callback
+
+        # Create event loop
+        self.loop = asyncio.new_event_loop()
+        self.loop_thread = threading.Thread(target=self._run_loop, daemon=True)
+        self.loop_thread.start()
 
         # Server address
         ttk.Label(self, text="Address:", width=9, anchor="e").grid(row=0, column=0)
@@ -58,11 +66,31 @@ class ServerPanel(ttk.LabelFrame):
         self.disconnect_btn = ttk.Button(
             self,
             text="Disconnect",
-            command=self.hadle_disconnect,
+            command=self.handle_disconnect,
             state="disabled",
             width=18,
         )
         self.disconnect_btn.grid(row=1, column=2, columnspan=2, sticky="ew", pady=2)
+
+    def _run_loop(self) -> None:
+        asyncio.set_event_loop(self.loop)
+        try:
+            self.loop.run_forever()
+        except Exception as e:
+            logger.error(f"Error in event loop: {e}")
+        finally:
+            # graceful cleanup
+            pending = asyncio.all_tasks(self.loop)
+            for task in pending:
+                task.cancel()
+            if pending:
+                self.loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+            self.loop.close()
+
+    def stop_loop(self) -> None:
+        if self.loop.is_running():
+            self.loop.call_soon_threadsafe(self.loop.stop)
+            self.loop_thread.join()
 
     def update_ui(self, status: StreamingStatus) -> None:
         if status in [
@@ -99,7 +127,7 @@ class ServerPanel(ttk.LabelFrame):
             self.app_cfg.save()
 
     def handle_connect(self) -> None:
-        self.connect_task = asyncio.create_task(self.connect_callback())
+        asyncio.run_coroutine_threadsafe(self.connect_callback(), self.loop)
 
-    def hadle_disconnect(self) -> None:
-        self.disconnect_task = asyncio.create_task(self.disconnect_callback())
+    def handle_disconnect(self) -> None:
+        asyncio.run_coroutine_threadsafe(self.disconnect_callback(), self.loop)
