@@ -124,12 +124,10 @@ class AudioPanel(ttk.LabelFrame):
             messagebox.showerror("Error", "No input devices found")
             self.app_cfg.input_device_idx = -1
             return
-
         self.input_device_combo["values"] = input_devices
         self.input_device_combo.current(
             min(len(self.input_device_combo["values"]) - 1, max(self.app_cfg.input_device_idx, 0))
         )
-        self.input_device_combo.event_generate("<<ComboboxSelected>>")
 
         output_devices = self.list_output_devices()
         if not output_devices:
@@ -137,12 +135,18 @@ class AudioPanel(ttk.LabelFrame):
             messagebox.showerror("Error", "No output devices found")
             self.app_cfg.output_device_idx = -1
             return
-
         self.output_device_combo["values"] = output_devices
         self.output_device_combo.current(
             min(len(self.output_device_combo["values"]) - 1, max(self.app_cfg.output_device_idx, 0))
         )
-        self.output_device_combo.event_generate("<<ComboboxSelected>>")
+
+        self.app_cfg.input_device_idx = self.input_device_combo.current()
+        self.app_cfg.output_device_idx = self.output_device_combo.current()
+        self.app_cfg.save()
+
+        if self.reconnect_audio_callback:
+            self.reconnect_audio_callback()
+
         self.status_callback("Audio device list refreshed")
 
     def handle_input_device_selected(self, _event: tk.Event) -> None:

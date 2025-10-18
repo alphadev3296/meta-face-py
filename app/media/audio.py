@@ -72,8 +72,8 @@ class AudioDelay:
                     device=(self.input_device_id, self.output_device_id),
                     callback=self._audio_callback,
                 ):
-                    while True:
-                        time.sleep(1.0)
+                    while not self.delay_thread_stop_event.is_set():
+                        time.sleep(0.1)
             except Exception as e:
                 logger.error(f"Error streaming audio: {e}")
 
