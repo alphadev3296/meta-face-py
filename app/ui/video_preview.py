@@ -77,14 +77,14 @@ class VideoPanel(ttk.Frame):
         self.processed_stream_canvas.bind("<Configure>", self._on_processed_resize)
 
     # ---- Event handlers ----
-    def _on_camera_resize(self, _event) -> None:  # noqa: ANN001
+    def _on_camera_resize(self, _event=None) -> None:  # type: ignore  # noqa: ANN001, PGH003
         """When resized, re-render the last shown camera frame if available."""
         self.camera_stream_canvas.delete("all")
         self._camera_img_id = None
         if self._last_camera_frame is not None:
             self.show_camera_frame(self._last_camera_frame)
 
-    def _on_processed_resize(self, _event) -> None:  # noqa: ANN001
+    def _on_processed_resize(self, _event=None) -> None:  # type: ignore  # noqa: ANN001, PGH003
         """When resized, re-render the last shown processed frame if available."""
         self.processed_stream_canvas.delete("all")
         self._processed_img_id = None
