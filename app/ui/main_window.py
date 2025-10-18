@@ -52,7 +52,7 @@ class VideoStreamApp(tk.Tk):
         # Configure window
         self.title("Metaface Client")
         self.geometry("950x680")
-        self.resizable(False, False)  # noqa: FBT003
+        self.minsize(950, 680)
 
         # Configure grid
         self.columnconfigure(0, weight=1)
