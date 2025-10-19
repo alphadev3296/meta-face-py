@@ -264,7 +264,8 @@ class VideoStreamApp(tk.Tk):
             self.update_status_bar("Streaming...")
         except Exception as ex:
             logger.error(f"Failed to connect to server: {ex}")
-            await self.disconnect_server()
+            self.streaming_status = StreamingStatus.DISCONNECTED
+            self.update_status_bar("Disconnected")
 
     async def disconnect_server(self) -> None:
         if self.streaming_status is not StreamingStatus.CONNECTED:
