@@ -215,7 +215,24 @@ class VideoStreamApp(tk.Tk):
             result = tonemap_reinhard.process(frame_float)
             frame = np.clip(result * 255, 0, 255).astype(np.uint8)
 
-        return frame
+        # Crop frame to 16:9
+        height, width = frame.shape[:2]
+        target_aspect = 16 / 9
+        current_aspect = width / height
+
+        if current_aspect > target_aspect:
+            # Too wide - crop horizontally
+            new_width = int(height * target_aspect)
+            x_offset = (width - new_width) // 2
+            frame = frame[:, x_offset : x_offset + new_width]
+        elif current_aspect < target_aspect:
+            # Too tall - crop vertically
+            new_height = int(width / target_aspect)
+            y_offset = (height - new_height) // 2
+            frame = frame[y_offset : y_offset + new_height, :]
+
+        # Force resize to 640x360 for best network performance
+        return cv2.resize(frame, (640, 360), interpolation=cv2.INTER_AREA)
 
     async def connect_server(self) -> None:
         try:
