@@ -7,6 +7,7 @@ import cv2
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from loguru import logger
 
+from app.config.webrtc import config as cfg_rtc
 from app.media.videotrack import WebcamVideoTrack
 from app.media.webcam import CvFrame
 
@@ -87,6 +88,7 @@ class WebRTCClient:
                     "photo": self.b64_photo,
                 },
                 headers={"Content-Type": "application/json"},
+                timeout=aiohttp.ClientTimeout(total=cfg_rtc.HTTP_REQUEST_TIMEOUT),
             ) as response,
         ):
             answer = await response.json()
