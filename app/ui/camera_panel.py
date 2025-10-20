@@ -65,7 +65,7 @@ class CameraPanel(ttk.LabelFrame):
         self.fps_combo = ttk.Combobox(
             self,
             textvariable=self.fps_var,
-            values=["5", "10", "25"],
+            values=["5", "10", "15", "20", "30"],
             state="readonly",
         )
         self.fps_combo.grid(row=3, column=1, pady=2, sticky="ew")
